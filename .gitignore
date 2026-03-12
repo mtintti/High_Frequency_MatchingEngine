@@ -4,3 +4,7 @@
 *ilk
 *exe
 *obj
+.vscode/
+build/
+*dll
+

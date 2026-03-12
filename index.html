@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>C++ Backend Test</title>
+</head>
+<body>
+
+<h1>Market Data</h1>
+<button onclick="loadData()">Get Data</button>
+
+<pre id="output"></pre>
+
+<script>
+async function loadData() {
+    const response = await fetch("http://localhost:8080/data");
+    const data = await response.json();
+
+    document.getElementById("output").textContent =
+        "Symbol: " + data.symbol + "\n" +
+        "Price: " + data.price + "\n" +
+        "Volume: " + data.volume;
+}
+</script>
+
+</body>
+</html>
