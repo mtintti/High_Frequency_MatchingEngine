@@ -63,10 +63,17 @@ struct websocketTradeStruct
     char weightAverage;
     char lastTickerprice;
     char lastQuantityamount;
-
 };
+
+//const auto starttime = std::chrono::high_resolution_clock::now();
 
 void websocketsTrade(boost::asio::io_context &ioc, boost::asio::ssl::context &coSSL, const char *host, const char *port, const char *endpoint);
 /*making 10 enterys of websocketStructs for now..*/
 /* not sure if that great :< */
-websocketTradeStruct *entery = (websocketTradeStruct *)malloc(10 * sizeof(websocketTradeStruct));
+//websocketTradeStruct *entery = (websocketTradeStruct *)malloc(10 * sizeof(websocketTradeStruct));
+
+auto const host = "stream.binance.com";
+auto const port = "9443";
+//auto const endpoint = "/ws/btcusdt@trade";
+auto const endpoint = "/ws/btcusdt@depth@100ms";
+extern std::vector<std::string> durationvec;
