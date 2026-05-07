@@ -6,10 +6,11 @@
 #include <vector>
 #include "websocket.h"
 #include "mempool.h"
+#include "orderbook.h"
 // #include "mempool.cpp"
 using depthPool = MemoryPool<sizeof(DepthUpdate)>;
 using BuffersPool = MemoryPool<8000>;
-
+//template MemoryPool<8000>; 
 class session : public std::enable_shared_from_this<session>
 {
     boost::asio::ip::tcp::resolver resolver;
@@ -34,11 +35,10 @@ public:
           ws(boost::asio::make_strand(ioc), (coSSL))
 
     {
-        websocketTradeStruct *entery = (websocketTradeStruct *)malloc(10 * sizeof(websocketTradeStruct));
-        std::cout << "\n is our websocketTradeStruct a pod? if yes nothing is seen";
-        std::cout << "\n";
-        static_assert(std::is_pod<websocketTradeStruct>::value, "the struct is not a pod");
-    }
+        depthPool::instance().prewarmAtStart(8000);
+        std::cout << "\n";  
+        std::cout << "\n depth mempool size " << sizeof(depthPool); 
+    };
 
     void run(const char *host, const char *port, const char *endpoint)
     {
@@ -90,7 +90,6 @@ public:
         }
         boost::beast::get_lowest_layer(ws).expires_after(std::chrono::minutes(5));
         boost::beast::get_lowest_layer(ws).async_connect(results, boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::connectOn, shared_from_this())));
-
         std::cout << "Resolved successfully, moving to connect in lower layer\n";
     }
 
@@ -169,7 +168,9 @@ void on_read(
     std::size_t bytes_transferred)
 {
     // std::cout << "\n does this happen more than ones :?";
-
+    //std::cout << "\n size of memorypool: "<< sizeof(MemoryPool);
+    std::cout << "\n size of bufferspool: "<< sizeof(BuffersPool);
+    
     const auto starttime = std::chrono::high_resolution_clock::now();
     boost::ignore_unused(bytes_transferred);
 
@@ -213,8 +214,8 @@ void on_read(
             std::cout << "\n num of pair: " <<num;
             num++;
             auto& pair = entry.as_array();
-            double priceOf = std::stod(std::string(pair[0].as_string()));
-            double quantityAmount = std::stod(std::string(pair[1].as_string()));
+            long double priceOf = std::stod(std::string(pair[0].as_string()));
+            long double quantityAmount = std::stod(std::string(pair[1].as_string()));
             void* mpool = depthPool::instance().allocate();
             DepthUpdate* dUp = new(mpool) DepthUpdate{};
             if(bidExist){
@@ -225,7 +226,11 @@ void on_read(
                 dUp->isitBid=false;
             }
             dUp->quantity=quantityAmount;
-            std::cout << "\n price "<< dUp->price << ", quantity "<< dUp->quantity;  
+            obook.updateDepthBased(dUp);
+            std::cout << "\n price "<< dUp->price << ", quantity "<< dUp->quantity; 
+            //std::cout << "\n size of DepthUpdate struct: " << sizeof(DepthUpdate);
+            //std::cout << "\n size of depthPool block:    " << sizeof(depthPool);
+            //std::cout << "\n actual struct via pointer:  " << sizeof(*dUp);
         };
     }
     

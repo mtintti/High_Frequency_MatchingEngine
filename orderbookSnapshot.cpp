@@ -13,21 +13,24 @@
 #include <string>
 #include "orderbookSnapshot.h"
 #include "windcertsload.h"
+#include <regex>
+#include "orderbook.h"
 
 namespace beast = boost::beast; // from <boost/beast.hpp>
 namespace http = beast::http;   // from <boost/beast/http.hpp>
 namespace net = boost::asio;    // from <boost/asio.hpp>
 using tcp = net::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
+boost::json::stream_parser streamParser;
 
 // Performs an HTTP GET and prints the response
-int getRequestOrderBook(boost::asio::ssl::context& contextSSL)
+int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
 {
     try
     {
         // Usage: http-client-sync <host> <port> <target> [<HTTP version: 1.0 or 1.1(default)>]\n"
         auto const host = "api.binance.com";
         auto const port = "443";
-        auto const target = "/api/v3/depth?symbol=BTCUSDT&limit=1000";
+        auto const target = "/api/v3/depth?symbol=BTCUSDT"; // &limit=1000;
         int version = 11;
 
         // The io_context is required for all I/O
@@ -50,12 +53,12 @@ int getRequestOrderBook(boost::asio::ssl::context& contextSSL)
         }
 
         // next ssl context, and check of verify
-        //boost::asio::ssl::context contextSSL(boost::asio::ssl::context::method::sslv23_client);
+        // boost::asio::ssl::context contextSSL(boost::asio::ssl::context::method::sslv23_client);
         boost::system::error_code ec;
         // This is the missing line — loads your OS trusted CA store
-        //contextSSL.set_default_verify_paths(ec);
-        //windowsCertificateStore(contextSSL);
-        
+        // contextSSL.set_default_verify_paths(ec);
+        // windowsCertificateStore(contextSSL);
+
         if (ec)
         {
             std::cout << "\n failed to load verify paths: " << ec.message();
@@ -107,24 +110,187 @@ int getRequestOrderBook(boost::asio::ssl::context& contextSSL)
         beast::flat_buffer buffer;
 
         // Declare a container to hold the response
-        http::response<http::dynamic_body> res;
-        // Receive the HTTP response
+        http::response<http::string_body> res;
+        // http::message<true, res;
+        //  Receive the HTTP response
+        // boost::json::object res;
+        // boost::beast::flat_buffer res;
+        // auto buffToString = boost::beast::http::basic_parser(res);
         http::read(socket, buffer, res);
-        for (auto &r : res)
-        {
-            auto name = r.name_string();
-            auto parent = r.parent_;
-            auto next = r.next_;
-            auto prev = r.prev_;
-            std::cout << "\n reading what ever we have, maybe?? name: " << name << " parent: " << parent << " next: " << next << " prev: " << prev;
-        }
-        std::cout << "\n response received";
-        std::cout << "\n response status: " << res.result_int();
-        std::cout << "\n body size: " << boost::beast::buffers_to_string(res.body().data()).size();
-        std::cout << res << std::endl;
+        std::cout << "\n"
+                  << std::endl;
+        // std::cout << res.body() << std::endl;
+        auto stringres = res.body();
+        std::cout << stringres << std::endl;
+        // auto httpGot = streamParser.release(res);
+        std::cout << "\n GET red and stored..";
+        int num = 0;
+        bool insidebraket = false;
+        bool outsidebraket = false;
+        bool priceToAmount = false;
+        bool isbid = false;
+        bool priceGone = false;
+        int bora = 0;
+        std::string prices;
+        std::string amounts;
+        int posb = stringres.find("bid");
+        int posa = stringres.find("ask");
+        long long parsedId;
+        std::cout << "\n was b or ask found? where " << posb << " , a: " << posa;
+        std::string suba = stringres.substr(posa);
+        std::string subb = stringres.substr(posb);
+        std::regex idPattern(R"("lastUpdateId":(\d+))");
+        std::smatch match;
 
-        // Write the message to standard out
-        std::cout << res << std::endl;
+        if (std::regex_search(stringres, match, idPattern))
+        {
+            long long parsedId = std::stoll(match[1]);
+            std::cout << "\n id: " << parsedId;
+        }
+
+       
+        
+        // std::cout << "\n was b or ask found? where?? "<< suba;
+        std::cout << "\n";
+
+        for (auto c : subb)
+        {
+            //std::cout << c;
+            num++;
+            
+            // std::cout << "\n bools,  braket? " <<insidebraket << " and getting? " << getting;
+            if (outsidebraket == false && c == '[')
+            {
+                outsidebraket = true;
+                //std::cout << "\n \n found: [[ " << " at " << num;
+            }
+            else if (outsidebraket == true && c == '[')
+            {
+                insidebraket = true;
+                //std::cout << "\n found: [ " << " at " << num;
+            }
+
+            if (c == ']')
+            {
+                insidebraket = false;
+                priceToAmount = false;
+                //std::cout << "\n found: ] " << " at " << num;
+            }
+            else if (insidebraket == false && c == ']')
+            {
+                // closing the outer bids or asks array
+                outsidebraket = false;
+                //std::cout << "\n\n found: ]] at " << num;
+            } // new end ^^
+            // prev code below
+            if (c == 'b' || c == 'a')
+            {
+                std::cout << "\n b or a found " << c;
+                if(isbid == true){
+                    isbid = false;
+                } else {
+                    isbid = true;
+                }
+                std::cout << "\n isbid (1) or (0) " << isbid;
+                bora++;
+            }
+
+            if (insidebraket == true && c == '"')
+            {
+                //std::cout << "c is not num " << c;
+                //std::cout << "\n clearing or skipping again but what?? ";
+
+                if (priceGone == false && prices.find('.') != -1)
+                {
+                    //std::cout << " done with price ";
+                    int pricesDot = prices.find('.');
+                    //std::cout << " dot found at " << pricesDot;
+                    priceGone = true;
+                }
+                else if (priceGone == true && amounts.find('.') != -1)
+                {
+                    //std::cout << " sending price ";
+                    //std::cout << " sending amount ";
+                    int amountDot = amounts.find('.');
+                    //std::cout << " dot found at " << amountDot;
+                    long double price = stod(prices);
+                    long double amount = stod(amounts);
+                    obook.addingEntery(price, amount, isbid);
+                    prices.clear();
+                    amounts.clear();
+                    priceGone = false;
+                };
+            }
+            else if (insidebraket == true && c == ',')
+            {
+                //std::cout << "\n moving from price to amount";
+                priceToAmount = true;
+            }
+            else if (insidebraket == true && c != ',' && priceToAmount != true && c != '[' && c != ']')
+            {
+                prices += c;
+                // priceTotalAmount++;
+                //std::cout << " c is num " << c << " as " << prices;
+            }
+            else if (insidebraket == true && priceToAmount == true)
+            {
+                amounts += c;
+                //std::cout << " c is amount " << c << " as " << amounts;
+            }
+        };
+        std::cout << "\n total bid or ask amounts found " << bora;
+
+        // only inside
+        /*for (auto c : suba)
+        {
+            std::cout << "\n " << c;
+            num++;
+            //std::cout << "\n bools,  braket? " <<insidebraket << " and getting? " << getting;
+            if (c == '[')
+            {
+                insidebraket = true;
+                std::cout << " found: [ " << c << " at " << num;
+            }
+            if (c == '[')
+            {
+                insidebraket = true;
+                std::cout << " found: [ " << c << " at " << num;
+            }
+            if (c == ']')
+            {
+                insidebraket = false;
+                priceToAmount = false;
+                std::cout << " found: ] " << c << " at " << num;
+                if(amount.size() > 0){
+                    std::cout << "\n clearing amount.. moving on to next bracket" ;
+                    amount.clear();
+                }
+            }
+            if (c == 'b' || c == 'a'){
+                bora++;
+            }
+
+            if(insidebraket == true && c == '"'){
+                std::cout <<  "c is not num " << c;
+                std::cout <<  "\n clearing price again ";
+                price.clear();
+
+            } else if(insidebraket == true && c == ','){
+                std::cout << "\n moving from price to amount";
+                std::cout << c;
+                priceToAmount = true;
+            } else if (insidebraket == true && c != ',' && priceToAmount != true && c != '[' && c != ']'){
+                price += c;
+                //priceTotalAmount++;
+                std::cout <<  " c is num " << c << " as " << price;
+
+            } else if (insidebraket == true && priceToAmount == true){
+                amount += c;
+                std::cout <<  " c is amount " << c << " as " << amount;
+            }
+        };
+        std::cout << "\n total bid or ask amounts found " << bora;*/
+
         std::cout << "\n message ended. shutting down..";
 
         // Gracefully close the socket

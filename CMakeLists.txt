@@ -14,7 +14,7 @@ find_package(OpenSSL REQUIRED)
 
 set(Boost_USE_STATIC_LIBS ON)
 
-add_executable(High_Frequency_MatchingEngine main.cpp websocket.cpp mempool.cpp orderbookSnapshot.cpp windcertsload.cpp)
+add_executable(High_Frequency_MatchingEngine main.cpp websocket.cpp mempool.cpp orderbookSnapshot.cpp orderbook.cpp windcertsload.cpp)
 
 target_include_directories(High_Frequency_MatchingEngine
     PRIVATE ${Boost_INCLUDE_DIRS}
