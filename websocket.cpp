@@ -101,22 +101,7 @@ public:
             std::cout << "error in onconnect: " << errorcode.message();
             // std::cout << "\n" << boost::beast::websocket::error
         };
-        // old web async call without ssl
-        /*boost::beast::websocket::response_type res;
-
-        hostHTTPheader ;
-        std::cout << "\n hosthttpheader " << hostHTTPheader;
-        std::cout << "\n endpoint " << endpoint;
-       std::string stringEndpoint;
-       stringEndpoint = endpoint.address().to_string();
-        //ws.async_handshake(hostHTTPheader, endpoint, boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::handshakeForMessage, shared_from_this())));
-        //ws.async_handshake(hostHTTPheader, endpoint, [&res](boost::beast::error_code ec));
-        ws.async_handshake(hostHTTPheader,stringEndpoint,boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::handshakeForMessage, shared_from_this())));
-        if (errorcode)
-        {
-            std::cout << "\n error in async_handshake after call: " << errorcode.message();
-            // std::cout << "\n" << boost::beast::websocket::error
-        };*/
+        
         ws.next_layer().async_handshake(boost::asio::ssl::stream_base::client, boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::when_in_ssl_handshake, shared_from_this())));
     };
 
@@ -206,12 +191,12 @@ void on_read(
     auto num = 0;
     for(const auto* nestedAskBid : {"b", "a"}){
         bool bidExist = (nestedAskBid[0] == 'b');
-        std::cout << "\n is bid (true) or ask (false)? ";
+        //std::cout << "\n is bid (true) or ask (false)? ";
         std::cout <<bidExist ;
         auto& nestedArray = dataObj.at(nestedAskBid).as_array();
         
         for(auto& entry : nestedArray){
-            std::cout << "\n num of pair: " <<num;
+            //std::cout << "\n num of pair: " <<num;
             num++;
             auto& pair = entry.as_array();
             long double priceOf = std::stod(std::string(pair[0].as_string()));
@@ -226,13 +211,18 @@ void on_read(
                 dUp->isitBid=false;
             }
             dUp->quantity=quantityAmount;
+            dUp->id_sequence = lastID;
+            //std::cout << "\n price "<< dUp->price << ", quantity "<< dUp->quantity << ", id: " << dUp->id_sequence;
             obook.updateDepthBased(dUp);
-            std::cout << "\n price "<< dUp->price << ", quantity "<< dUp->quantity; 
+            //std::cout << ", send call done";
+            dUp->~DepthUpdate(); 
+            depthPool::instance().deallocate(mpool);
             //std::cout << "\n size of DepthUpdate struct: " << sizeof(DepthUpdate);
             //std::cout << "\n size of depthPool block:    " << sizeof(depthPool);
             //std::cout << "\n actual struct via pointer:  " << sizeof(*dUp);
         };
     }
+    obook.printTop(5);
     
     // std::cout << "\n duration of call, " << duration;
 

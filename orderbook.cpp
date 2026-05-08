@@ -1,10 +1,7 @@
 #include "orderbook.h"
 #include "mempool.h"
 
-/*void orderbook::init()
-{
-}
-*/
+
 orderbook obook;
 void orderbook::addingEntery(long double price, long double amount, bool isbid)
 {
@@ -12,17 +9,9 @@ void orderbook::addingEntery(long double price, long double amount, bool isbid)
     // std::cout << " got price "<< price << " , amount " << amount;
     totalEnterys++;
     std::cout << "\n total enterys " << totalEnterys;
-    /*if(isbid == true){
-        bids.emplace(price, amount);
-        std::cout << "bids hashmap size " << bids.size();
-    } else {
-        asks.emplace(price, amount);
-        std::cout << "asks hashmap size " << asks.size();
-    }*/
 
     if (amount == 0.0L)
     {
-        // quantity zero means remove this price level
         if (isbid)
         {
             bids.erase(price);
@@ -38,12 +27,12 @@ void orderbook::addingEntery(long double price, long double amount, bool isbid)
     {
         if (isbid)
         {
-            bids[price] = amount; // insert or update
+            bids[price] = amount; 
             std::cout << "\n bids size " << bids.size();
         }
         else
         {
-            asks[price] = amount; // insert or update
+            asks[price] = amount;
             std::cout << "\n asks size " << asks.size();
         }
     }
@@ -51,8 +40,40 @@ void orderbook::addingEntery(long double price, long double amount, bool isbid)
 
 void orderbook::updateDepthBased(struct DepthUpdate* Udp)
 {
-    std::cout << " \n what got in update depth based";
-    std::cout << "p: "<<Udp->price << " q: " << Udp->quantity << " idofseq: " << Udp->id_sequence<< " isbid?: " << Udp->isitBid;
-    std::cout <<"\n";
+    //std::cout << " \n what got in update depth based";
+    //std::cout << "p: "<<Udp->price << ", quantity: " << Udp->quantity << ", idofseq: " << Udp->id_sequence<< " isbid?: " << Udp->isitBid;
+    //std::cout <<"\n";
+    if (Udp->quantity == 0.0L) {
+        // remove this price level from the book
+        if (Udp->isitBid) {
+            bids.erase(Udp->price);
+        } else {
+            asks.erase(Udp->price);
+        }
+    } else {
+        // insert or update the price level
+        if (Udp->isitBid) {
+            bids[Udp->price] = Udp->quantity;
+        } else {
+            asks[Udp->price] = Udp->quantity;
+        }
+    }
 
+}
+
+
+void orderbook::printTop(int levels)
+{
+    std::cout << "\n--- top " << levels << " asks (lowest first) ---";
+    int i = 0;
+    for (auto it = asks.begin(); it != asks.end() && i < levels; ++it, ++i) {
+        std::cout << "\n  ask: " << it->first << " qty: " << it->second;
+    }
+
+    std::cout << "\n--- top " << levels << " bids (highest first) ---";
+    i = 0;
+    for (auto it = bids.begin(); it != bids.end() && i < levels; ++it, ++i) {
+        std::cout << "\n  bid: " << it->first << " qty: " << it->second;
+    }
+    std::cout << "\n--- spread: " << (asks.begin()->first - bids.begin()->first) << " ---\n";
 }
