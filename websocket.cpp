@@ -6,10 +6,11 @@
 #include <vector>
 #include "websocket.h"
 #include "mempool.h"
+#include "orderbook.h"
 // #include "mempool.cpp"
 using depthPool = MemoryPool<sizeof(DepthUpdate)>;
 using BuffersPool = MemoryPool<8000>;
-
+//template MemoryPool<8000>; 
 class session : public std::enable_shared_from_this<session>
 {
     boost::asio::ip::tcp::resolver resolver;
@@ -34,11 +35,10 @@ public:
           ws(boost::asio::make_strand(ioc), (coSSL))
 
     {
-        websocketTradeStruct *entery = (websocketTradeStruct *)malloc(10 * sizeof(websocketTradeStruct));
-        std::cout << "\n is our websocketTradeStruct a pod? if yes nothing is seen";
-        std::cout << "\n";
-        static_assert(std::is_pod<websocketTradeStruct>::value, "the struct is not a pod");
-    }
+        depthPool::instance().prewarmAtStart(8000);
+        std::cout << "\n";  
+        std::cout << "\n depth mempool size " << sizeof(depthPool); 
+    };
 
     void run(const char *host, const char *port, const char *endpoint)
     {
@@ -90,7 +90,6 @@ public:
         }
         boost::beast::get_lowest_layer(ws).expires_after(std::chrono::minutes(5));
         boost::beast::get_lowest_layer(ws).async_connect(results, boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::connectOn, shared_from_this())));
-
         std::cout << "Resolved successfully, moving to connect in lower layer\n";
     }
 
@@ -102,22 +101,7 @@ public:
             std::cout << "error in onconnect: " << errorcode.message();
             // std::cout << "\n" << boost::beast::websocket::error
         };
-        // old web async call without ssl
-        /*boost::beast::websocket::response_type res;
-
-        hostHTTPheader ;
-        std::cout << "\n hosthttpheader " << hostHTTPheader;
-        std::cout << "\n endpoint " << endpoint;
-       std::string stringEndpoint;
-       stringEndpoint = endpoint.address().to_string();
-        //ws.async_handshake(hostHTTPheader, endpoint, boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::handshakeForMessage, shared_from_this())));
-        //ws.async_handshake(hostHTTPheader, endpoint, [&res](boost::beast::error_code ec));
-        ws.async_handshake(hostHTTPheader,stringEndpoint,boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::handshakeForMessage, shared_from_this())));
-        if (errorcode)
-        {
-            std::cout << "\n error in async_handshake after call: " << errorcode.message();
-            // std::cout << "\n" << boost::beast::websocket::error
-        };*/
+        
         ws.next_layer().async_handshake(boost::asio::ssl::stream_base::client, boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::when_in_ssl_handshake, shared_from_this())));
     };
 
@@ -169,7 +153,9 @@ void on_read(
     std::size_t bytes_transferred)
 {
     // std::cout << "\n does this happen more than ones :?";
-
+    //std::cout << "\n size of memorypool: "<< sizeof(MemoryPool);
+    std::cout << "\n size of bufferspool: "<< sizeof(BuffersPool);
+    
     const auto starttime = std::chrono::high_resolution_clock::now();
     boost::ignore_unused(bytes_transferred);
 
@@ -205,16 +191,16 @@ void on_read(
     auto num = 0;
     for(const auto* nestedAskBid : {"b", "a"}){
         bool bidExist = (nestedAskBid[0] == 'b');
-        std::cout << "\n is bid (true) or ask (false)? ";
+        //std::cout << "\n is bid (true) or ask (false)? ";
         std::cout <<bidExist ;
         auto& nestedArray = dataObj.at(nestedAskBid).as_array();
         
         for(auto& entry : nestedArray){
-            std::cout << "\n num of pair: " <<num;
+            //std::cout << "\n num of pair: " <<num;
             num++;
             auto& pair = entry.as_array();
-            double priceOf = std::stod(std::string(pair[0].as_string()));
-            double quantityAmount = std::stod(std::string(pair[1].as_string()));
+            long double priceOf = std::stod(std::string(pair[0].as_string()));
+            long double quantityAmount = std::stod(std::string(pair[1].as_string()));
             void* mpool = depthPool::instance().allocate();
             DepthUpdate* dUp = new(mpool) DepthUpdate{};
             if(bidExist){
@@ -225,9 +211,18 @@ void on_read(
                 dUp->isitBid=false;
             }
             dUp->quantity=quantityAmount;
-            std::cout << "\n price "<< dUp->price << ", quantity "<< dUp->quantity;  
+            dUp->id_sequence = lastID;
+            //std::cout << "\n price "<< dUp->price << ", quantity "<< dUp->quantity << ", id: " << dUp->id_sequence;
+            obook.updateDepthBased(dUp);
+            //std::cout << ", send call done";
+            dUp->~DepthUpdate(); 
+            depthPool::instance().deallocate(mpool);
+            //std::cout << "\n size of DepthUpdate struct: " << sizeof(DepthUpdate);
+            //std::cout << "\n size of depthPool block:    " << sizeof(depthPool);
+            //std::cout << "\n actual struct via pointer:  " << sizeof(*dUp);
         };
     }
+    obook.printTop(5);
     
     // std::cout << "\n duration of call, " << duration;
 

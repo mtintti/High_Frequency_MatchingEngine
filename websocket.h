@@ -43,7 +43,6 @@ namespace pt = boost::property_tree;
 #include <boost/asio/signal_set.hpp>
 #include <thread>
 #include <set>
-// test
 #include <stdlib.h>
 #include <stdio.h>
 #include <boost/beast/core/detail/config.hpp>
@@ -51,21 +50,6 @@ namespace pt = boost::property_tree;
 #include <boost/asio/buffer.hpp>
 #include <string>
 
-//pod hyvä datan hallintaan
-struct websocketTradeStruct
-    {
-    int x;
-    char eventType; // was it an buy, trade or sell??
-    int eventTime; // what time the event happened
-    char symbol; //name of ticker symbol
-    char priceChangenum;
-    char priceChangepros; // prosentage of price change
-    char weightAverage;
-    char lastTickerprice;
-    char lastQuantityamount;
-};
-
-//const auto starttime = std::chrono::high_resolution_clock::now();
 
 void websocketsTrade(boost::asio::io_context &ioc, boost::asio::ssl::context &coSSL, const char *host, const char *port, const char *endpoint);
 /*making 10 enterys of websocketStructs for now..*/
