@@ -20,8 +20,8 @@ public:
 
 struct DepthUpdate
 {
-    long double price;
-    long double quantity;
+    int64_t price; //was long double and then int64_t
+    int64_t quantity; //was long double
     bool isitBid;
     uint64_t id_sequence;
 };
