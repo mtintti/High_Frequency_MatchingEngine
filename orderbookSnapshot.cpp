@@ -15,6 +15,8 @@
 #include "windcertsload.h"
 #include <regex>
 #include "orderbook.h"
+#include "profile.h"
+#include "fast_float.h"
 
 namespace beast = boost::beast; // from <boost/beast.hpp>
 namespace http = beast::http;   // from <boost/beast/http.hpp>
@@ -47,9 +49,9 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
         {
             auto endpoint = r.endpoint();
             auto name = r.host_name();
-            std::cout << "\n in orderSnapshot resolved domain endpoint " << r.endpoint() << " , name " << r.host_name();
-            // is_valid_utf8(endpoint);
-            // is_valid_utf8(name);
+            // std::cout << "\n in orderSnapshot resolved domain endpoint " << r.endpoint() << " , name " << r.host_name();
+            //  is_valid_utf8(endpoint);
+            //  is_valid_utf8(name);
         }
 
         // next ssl context, and check of verify
@@ -72,19 +74,20 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
             std::cout << "\n what?: " << ec.what();
         } // Make the connection on the IP address we get from a lookup
         // stream.connect(results);
+        HFTProfiler::SNAPSHOT_GET;
         boost::asio::ssl::stream<tcp::socket> socket(ioc, contextSSL);
         // tcp::socket::lowest_layer_type &sock = socket.lowest_layer();
         socket.set_verify_callback(boost::asio::ssl::host_name_verification(host));
         socket.set_verify_mode(boost::asio::ssl::verify_peer);
-        std::cout << "\n verify mode and callback done..";
+        // std::cout << "\n verify mode and callback done..";
 
-        std::cout << "\n moving to connect";
+        // std::cout << "\n moving to connect";
         SSL_set_tlsext_host_name(socket.native_handle(), host);
 
         connect(socket.lowest_layer(), results);
         socket.lowest_layer().set_option(tcp::no_delay(true));
 
-        std::cout << "\n connect done then hanshake..";
+        // std::cout << "\n connect done then hanshake..";
 
         // socket.set_verify_callback(boost::asio::ssl::host_name_verification(host));
         socket.handshake(boost::asio::ssl::stream_base::client, ec);
@@ -95,7 +98,7 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
                       << " category=" << ec.category().name();
             return EXIT_FAILURE;
         }
-        std::cout << "\n handshake done, get req..";
+        // std::cout << "\n handshake done, get req..";
 
         // Set up an HTTP GET request message
         http::request<http::string_body> req{http::verb::get, target, version};
@@ -104,9 +107,9 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
         // Send the HTTP request to the remote host
         // http::write(stream, req);
         http::write(socket, req);
-        std::cout << "\n GET req ";
-        std::cout << "\n sending GET req to host (aka binance).. ";
-        // This buffer is used for reading and must be persisted
+        // std::cout << "\n GET req ";
+        // std::cout << "\n sending GET req to host (aka binance).. ";
+        //  This buffer is used for reading and must be persisted
         beast::flat_buffer buffer;
 
         // Declare a container to hold the response
@@ -117,13 +120,14 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
         // boost::beast::flat_buffer res;
         // auto buffToString = boost::beast::http::basic_parser(res);
         http::read(socket, buffer, res);
-        std::cout << "\n"
-                  << std::endl;
-        // std::cout << res.body() << std::endl;
+        // std::cout << "\n"
+        //           << std::endl;
+        //  std::cout << res.body() << std::endl;
         auto stringres = res.body();
-        std::cout << stringres << std::endl;
-        // auto httpGot = streamParser.release(res);
-        std::cout << "\n GET red and stored..";
+        // std::cout << stringres << std::endl;
+        //  auto httpGot = streamParser.release(res);
+        // std::cout << "\n GET red and stored..";
+        HFTProfiler::SNAPSHOT_PARSE;
         int num = 0;
         bool insidebraket = false;
         bool outsidebraket = false;
@@ -136,7 +140,7 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
         int posb = stringres.find("bid");
         int posa = stringres.find("ask");
         long long parsedId;
-        std::cout << "\n was b or ask found? where " << posb << " , a: " << posa;
+        // std::cout << "\n was b or ask found? where " << posb << " , a: " << posa;
         std::string suba = stringres.substr(posa);
         std::string subb = stringres.substr(posb);
         std::regex idPattern(R"("lastUpdateId":(\d+))");
@@ -145,76 +149,87 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
         if (std::regex_search(stringres, match, idPattern))
         {
             long long parsedId = std::stoll(match[1]);
-            std::cout << "\n id: " << parsedId;
+            // std::cout << "\n id: " << parsedId;
         }
 
-       
-        
         // std::cout << "\n was b or ask found? where?? "<< suba;
-        std::cout << "\n";
+        // std::cout << "\n";
 
         for (auto c : subb)
         {
-            //std::cout << c;
+            // std::cout << c;
             num++;
-            
+
             // std::cout << "\n bools,  braket? " <<insidebraket << " and getting? " << getting;
             if (outsidebraket == false && c == '[')
             {
                 outsidebraket = true;
-                //std::cout << "\n \n found: [[ " << " at " << num;
+                // std::cout << "\n \n found: [[ " << " at " << num;
             }
             else if (outsidebraket == true && c == '[')
             {
                 insidebraket = true;
-                //std::cout << "\n found: [ " << " at " << num;
+                // std::cout << "\n found: [ " << " at " << num;
             }
 
             if (c == ']')
             {
                 insidebraket = false;
                 priceToAmount = false;
-                //std::cout << "\n found: ] " << " at " << num;
+                // std::cout << "\n found: ] " << " at " << num;
             }
             else if (insidebraket == false && c == ']')
             {
                 // closing the outer bids or asks array
                 outsidebraket = false;
-                //std::cout << "\n\n found: ]] at " << num;
+                // std::cout << "\n\n found: ]] at " << num;
             } // new end ^^
             // prev code below
             if (c == 'b' || c == 'a')
             {
-                std::cout << "\n b or a found " << c;
-                if(isbid == true){
+                // std::cout << "\n b or a found " << c;
+                if (isbid == true)
+                {
                     isbid = false;
-                } else {
+                }
+                else
+                {
                     isbid = true;
                 }
-                std::cout << "\n isbid (1) or (0) " << isbid;
+                // std::cout << "\n isbid (1) or (0) " << isbid;
                 bora++;
             }
 
             if (insidebraket == true && c == '"')
             {
-                //std::cout << "c is not num " << c;
-                //std::cout << "\n clearing or skipping again but what?? ";
+                // std::cout << "c is not num " << c;
+                // std::cout << "\n clearing or skipping again but what?? ";
 
                 if (priceGone == false && prices.find('.') != -1)
                 {
-                    //std::cout << " done with price ";
+                    // std::cout << " done with price ";
                     int pricesDot = prices.find('.');
-                    //std::cout << " dot found at " << pricesDot;
+                    // std::cout << " dot found at " << pricesDot;
                     priceGone = true;
                 }
                 else if (priceGone == true && amounts.find('.') != -1)
                 {
-                    //std::cout << " sending price ";
-                    //std::cout << " sending amount ";
+                    // std::cout << " sending price ";
+                    // std::cout << " sending amount ";
                     int amountDot = amounts.find('.');
-                    //std::cout << " dot found at " << amountDot;
-                    long double price = stod(prices);
-                    long double amount = stod(amounts);
+                    // std::cout << " dot found at " << amountDot;
+                    //std::cout << "\n snapshot: stdstring " << prices << " amount: "<< amounts;
+                    int64_t pricestod = stoi(prices); // was int64_t and stod. originally long double
+                    int64_t amountstod = stoi(amounts); // this too ^
+                    //std::cout << " , snapshot: stod " << pricestod << " amount: "<< amountstod;
+
+                    int64_t price = pricestod * 100000; //was 100000
+                    int64_t amount = amountstod * 100000;
+                    //std::cout << "\n snapshot: " << price << " amount: "<< amount;
+                    /*long double price, amount;
+                    fast_float::from_chars(prices.data(),prices.data(),prices.size(), price);
+                    fast_float::from_chars(amounts.data(),amounts.data(),amounts.size(), amount);*/
+
                     obook.addingEntery(price, amount, isbid);
                     prices.clear();
                     amounts.clear();
@@ -223,22 +238,22 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
             }
             else if (insidebraket == true && c == ',')
             {
-                //std::cout << "\n moving from price to amount";
+                // std::cout << "\n moving from price to amount";
                 priceToAmount = true;
             }
             else if (insidebraket == true && c != ',' && priceToAmount != true && c != '[' && c != ']')
             {
                 prices += c;
                 // priceTotalAmount++;
-                //std::cout << " c is num " << c << " as " << prices;
+                // std::cout << " c is num " << c << " as " << prices;
             }
             else if (insidebraket == true && priceToAmount == true)
             {
                 amounts += c;
-                //std::cout << " c is amount " << c << " as " << amounts;
+                // std::cout << " c is amount " << c << " as " << amounts;
             }
         };
-        std::cout << "\n total bid or ask amounts found " << bora;
+        // std::cout << "\n total bid or ask amounts found " << bora;
 
         // only inside
         /*for (auto c : suba)

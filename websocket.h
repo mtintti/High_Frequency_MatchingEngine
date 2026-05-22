@@ -1,20 +1,4 @@
 #include <vector>
-//SoA way, hyvä laskennalle tai suodatuksille, ei padding koska hakee vain
-// tarvittavan arvon, esim. symbol x eikä kaikkia x enterys esim. eventType x, symbol x 
-/*struct websocketTradeStruct
-    {
-    std::vector<int> x;
-    std::vector<char> eventType; // was it an buy, trade or sell??
-    std::vector<int> eventTime; // what time the event happened
-    std::vector<char> symbol; //name of ticker symbol
-    std::vector<char> priceChangenum;
-    std::vector<char> priceChangepros; // prosentage of price change
-    std::vector<char> weightAverage;
-    std::vector<char> lastTickerprice;
-    std::vector<char> lastQuantityamount;
-
-};*/
-
 #include <algorithm>
 #include <boost/asio.hpp>
 #include <thread>
@@ -24,7 +8,6 @@
 #include <boost/foreach.hpp>
 namespace pt = boost::property_tree;
 #include <boost/json.hpp>
-// #include "root_certificates.hpp" skipping ssl for now
 
 #include <boost/beast/core.hpp>
 #include <boost/beast/core/buffers_range.hpp>

@@ -1,8 +1,9 @@
 #include <iostream>
-#include "matchingEngine.cpp"
 #include "websocket.h"
 #include "orderbookSnapshot.h"
 #include "windcertsload.h"
+#include "profile.h"
+#include "orderbook.h"
 
 std::vector<std::string> durationvec;
 inline void installTerminateHandler()
@@ -59,8 +60,8 @@ inline void installTerminateHandler()
 int main(const int argc, char *argv[])
 {
     installTerminateHandler();
-    std::cout << "hello";
-    std::cout << "\n high matching engine";
+    //std::cout << "hello";
+    //std::cout << "\n high matching engine";
     boost::asio::ssl::context contextSSL(boost::asio::ssl::context::method::sslv23_client);
     windowsCertificateStore(contextSSL);
     getRequestOrderBook(contextSSL);
@@ -77,9 +78,9 @@ int main(const int argc, char *argv[])
     
     websocketsTrade(ioc, coSSL, host, port, endpoint);
     std::vector<std::thread> vec;
-    std::cout << "\n after websocketsTrade(), reserving threads -1";
+    //std::cout << "\n after websocketsTrade(), reserving threads -1";
     vec.reserve(threads - 1);
-    std::cout << "\n vec size: " << vec.size();
+    //std::cout << "\n vec size: " << vec.size();
     for (auto i = 0; i < threads - 1; i++)
     {
         vec.emplace_back([&ioc]{
@@ -93,10 +94,13 @@ int main(const int argc, char *argv[])
     for (auto &t : vec)
     {            
         t.join();
+        
+        obook.printTop(5);
+        HFTProfiler::instance().print(); 
         //return EXIT_SUCCESS;
     };
     for(size_t j = 0; j < durationvec.size(); j++){
-        std::cout<< "\n "<< durationvec[j];
+        //std::cout<< "\n "<< durationvec[j];
     };
     return EXIT_SUCCESS;
     
