@@ -75,7 +75,6 @@ int main(const int argc, char *argv[])
     signals.async_wait([&](auto, auto){
         ioc.stop();
     });
-    
     websocketsTrade(ioc, coSSL, host, port, endpoint);
     std::vector<std::thread> vec;
     //std::cout << "\n after websocketsTrade(), reserving threads -1";

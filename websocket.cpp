@@ -9,6 +9,9 @@
 #include "orderbook.h"
 #include "profile.h"
 #include "fast_float.h"
+#include "regex"
+
+
 // #include "mempool.cpp"
 using depthPool = MemoryPool<sizeof(DepthUpdate)>;
 using BuffersPool = MemoryPool<8000>;
@@ -150,6 +153,14 @@ public:
             flatbuff,
             boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::on_read, shared_from_this())));
     }
+    typedef std::pair<int, int> SplitFloat;
+    SplitFloat split(float val, int pres)
+    {
+        float left = std::floor(val);
+        //std::cout << "\n left: " << left << ", val - left "<< val << " " << left;
+        float right = (val - left) * float(std::pow(10, pres));
+        return SplitFloat(left, right);
+    };
 
 
     void on_read(
@@ -206,8 +217,8 @@ public:
         for (const auto *nestedAskBid : {"b", "a"})
         {
             bool bidExist = (nestedAskBid[0] == 'b');
-            // std::cout << "\n is bid (true) or ask (false)? ";
-            // std::cout << bidExist;
+            //std::cout << "\n is bid (true) or ask (false)? ";
+            //std::cout << bidExist;
             auto &nestedArray = dataObj.at(nestedAskBid).as_array();
 
             for (auto &entry : nestedArray)
@@ -217,23 +228,41 @@ public:
                 auto &pair = entry.as_array();
                 // long double priceOf = std::stod(std::string(pair[0].as_string()));
                 // long double quantityAmount = std::stod(std::string(pair[1].as_string()));
+                std::string priceOfs = (std::string(pair[0].as_string()));
+                std::string quantityAmounts = (std::string(pair[1].as_string()));
 
-                double priceOf = 0.0, quantityAmount = 0.0;
-                auto pStr = pair[0].as_string();
-                auto qStr = pair[1].as_string();
-                fast_float::from_chars(pStr.data(), pStr.data() + pStr.size(), priceOf);
-                fast_float::from_chars(qStr.data(), qStr.data() + qStr.size(), quantityAmount);
-
-                // std::cout << "\n websock priceOf: " << priceOf << " qAm "<< quantityAmount;
-                // std::cout << "\n";
-                int64_t price5 = priceOf * 100000;
-                // std::cout << "after 10^5";
-                // std::cout << "\n Pr: " << price5;
-                int64_t amount5 = quantityAmount * 100000; // was 100000
-                // std::cout << "after 10^5";
-                // std::cout <<" am: " <<amount5;
+                //std::cout << "\n websocket " << priceOfs << " " << quantityAmounts << " bidExist " << bidExist;
+                // int64_t price5 =  stoi(priceOfs) / 0.01; //priceOf / 0.01;
+                
+                //claude
+                //auto pStr = pair[0].as_string();
+                //auto qStr = pair[1].as_string();
+                //int64_t price5 = stringToFixedPoint({pStr.data(), pStr.size()}, 2);
+                //int64_t amount5 = stringToFixedPoint({qStr.data(), qStr.size()}, 5);
 
                 
+                //past, mine
+                float priceOf = stof(priceOfs); // was stof, for float and not long
+                // int priceOf = stoul(priceOfs, 0, {0,1,2,3});
+                std::string frac1;
+                std::string frac2;
+                int dot = priceOfs.find('.');
+                frac1 = priceOfs[dot +1];
+                frac2 = priceOfs[dot +2];
+
+                double quantityAmount = stod(quantityAmounts);
+                //std::cout << "\n after sto functs, " << priceOf<< " " << quantityAmount;
+                SplitFloat p = split(priceOf,3);
+                //std::cout << "\n Pr: " << p.first << " " << p.second;
+                std::string price5strings = std::to_string(p.first) + frac1 + frac2;
+                int64_t price5 = std::stoll(price5strings);
+                //std::cout << "\n fracs " << frac1 << " " << frac2;
+                //int64_t amount5 = q.first + q.second;
+                int64_t amount5 = quantityAmount * 100000.0;
+
+                // std::cout << "\n converted ";
+                //std::cout << "\n Pr: " << price5;
+                //std::cout <<" am: " <<amount5;
 
                 void *mpool;
                 {

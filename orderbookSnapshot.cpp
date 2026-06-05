@@ -24,6 +24,16 @@ namespace net = boost::asio;    // from <boost/asio.hpp>
 using tcp = net::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 boost::json::stream_parser streamParser;
 
+typedef std::pair<int, int> SplitFloat;
+SplitFloat split(double val, int pres)
+{
+    double left = std::floor(val);
+    //std::cout << "\n left: " << left << ", val - left "<< val << " " << left;
+    double right = (val - left) * double(std::pow(10, pres));
+    return SplitFloat(left, right);
+};
+
+
 // Performs an HTTP GET and prints the response
 int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
 {
@@ -145,11 +155,16 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
         std::string subb = stringres.substr(posb);
         std::regex idPattern(R"("lastUpdateId":(\d+))");
         std::smatch match;
+        int64_t lastId;
+
+        std::string frac1;
+        std::string frac2;
 
         if (std::regex_search(stringres, match, idPattern))
         {
             long long parsedId = std::stoll(match[1]);
-            // std::cout << "\n id: " << parsedId;
+            std::cout << "\n id: " << parsedId;
+            lastId = parsedId;
         }
 
         // std::cout << "\n was b or ask found? where?? "<< suba;
@@ -210,27 +225,47 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
                     // std::cout << " done with price ";
                     int pricesDot = prices.find('.');
                     // std::cout << " dot found at " << pricesDot;
+                
+                    //std::cout << "\n pricesDot1 " <<prices[pricesDot +1];
+                    frac1 = prices[pricesDot +1];
+                    frac2 = prices[pricesDot +2];
+                    //std::cout << "\n pricesDot2 " <<prices[pricesDot +2];
+                    
                     priceGone = true;
                 }
                 else if (priceGone == true && amounts.find('.') != -1)
                 {
-                    // std::cout << " sending price ";
-                    // std::cout << " sending amount ";
                     int amountDot = amounts.find('.');
-                    // std::cout << " dot found at " << amountDot;
-                    //std::cout << "\n snapshot: stdstring " << prices << " amount: "<< amounts;
-                    int64_t pricestod = stoi(prices); // was int64_t and stod. originally long double
+
+                    // old, mine
+                    //std::cout << "\n "<< prices;
+                    
+                    double priceOf = stod(prices);
+                    double quantityAmount = stod(amounts);
+                    //std::cout << "\n "<< amounts;
+                    SplitFloat p = split(priceOf, 2);
+                    //std::string price5strings = std::to_string(p.first) + std::to_string(p.second);
+                    //std::cout <<"\n price + frac1 and two " << std::to_string(p.first) <<" "<<frac1 <<" "<< frac2;
+                    std::string price5strings = std::to_string(p.first) + frac1+ frac2;
+                    //std::cout << "\n price5tostrings "<< price5strings;
+                    int64_t price = std::stoll(price5strings);
+                    int64_t amount = quantityAmount * 100000.0;
+
+
+                    /*int64_t pricestod = stoi(prices); // was int64_t and stod. originally long double
                     int64_t amountstod = stoi(amounts); // this too ^
                     //std::cout << " , snapshot: stod " << pricestod << " amount: "<< amountstod;
 
                     int64_t price = pricestod * 100000; //was 100000
-                    int64_t amount = amountstod * 100000;
-                    //std::cout << "\n snapshot: " << price << " amount: "<< amount;
-                    /*long double price, amount;
-                    fast_float::from_chars(prices.data(),prices.data(),prices.size(), price);
-                    fast_float::from_chars(amounts.data(),amounts.data(),amounts.size(), amount);*/
+                    int64_t amount = amountstod * 100000;*/
 
-                    obook.addingEntery(price, amount, isbid);
+                    // claude
+                    // auto pStr = prices;
+                    // auto qStr = amounts;
+                    // int64_t price = stringToFixedPoint({pStr.data(), pStr.size()}, 2);
+                    // int64_t amount = stringToFixedPoint({qStr.data(), qStr.size()}, 5);
+
+                    obook.addingEntery(price, amount, isbid, lastId);
                     prices.clear();
                     amounts.clear();
                     priceGone = false;
