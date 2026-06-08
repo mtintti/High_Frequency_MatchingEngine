@@ -1,5 +1,6 @@
 #include <iostream>
 #include "websocket.h"
+#include "main.h"
 #include "orderbookSnapshot.h"
 #include "windcertsload.h"
 #include "profile.h"
@@ -29,12 +30,10 @@ inline void installTerminateHandler()
             std::cerr << " category: " << e.code().category().name() << "\n";
         }
         catch (const std::invalid_argument& e) {
-            // boost::json as_object()/as_array() throw this on wrong type
             std::cerr << " type    : std::invalid_argument\n";
             std::cerr << " what    : " << e.what() << "\n";
         }
         catch (const std::out_of_range& e) {
-            // boost::json .at() throws this on missing key
             std::cerr << " type    : std::out_of_range\n";
             std::cerr << " what    : " << e.what() << "\n";
         }
@@ -49,27 +48,25 @@ inline void installTerminateHandler()
         std::cerr << "=========================================\n";
         std::cerr << std::flush;
 
-        // abort() produces a core dump you can inspect in a debugger
-        // call default terminate behavior
         std::abort();
     });
 }
 
 
+boost::asio::ssl::context contextSSL(boost::asio::ssl::context::method::sslv23_client);
+boost::asio::ssl::context coSSL(boost::asio::ssl::context::sslv23_client);
 
 int main(const int argc, char *argv[])
 {
     installTerminateHandler();
     //std::cout << "hello";
     //std::cout << "\n high matching engine";
-    boost::asio::ssl::context contextSSL(boost::asio::ssl::context::method::sslv23_client);
     windowsCertificateStore(contextSSL);
     getRequestOrderBook(contextSSL);
     
     
     int threads = 2;
     boost::asio::io_context ioc;
-    boost::asio::ssl::context coSSL(boost::asio::ssl::context::sslv23_client);
     windowsCertificateStore(coSSL);
     boost::asio::signal_set signals(ioc, SIGINT, SIGTERM);
     signals.async_wait([&](auto, auto){
@@ -77,9 +74,7 @@ int main(const int argc, char *argv[])
     });
     websocketsTrade(ioc, coSSL, host, port, endpoint);
     std::vector<std::thread> vec;
-    //std::cout << "\n after websocketsTrade(), reserving threads -1";
     vec.reserve(threads - 1);
-    //std::cout << "\n vec size: " << vec.size();
     for (auto i = 0; i < threads - 1; i++)
     {
         vec.emplace_back([&ioc]{
@@ -96,10 +91,8 @@ int main(const int argc, char *argv[])
         
         obook.printTop(5);
         HFTProfiler::instance().print(); 
-        //return EXIT_SUCCESS;
     };
     for(size_t j = 0; j < durationvec.size(); j++){
-        //std::cout<< "\n "<< durationvec[j];
     };
     return EXIT_SUCCESS;
     

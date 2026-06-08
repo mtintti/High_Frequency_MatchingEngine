@@ -11,8 +11,13 @@ class orderbook{
     int totalEnterys = 0;
     public: 
     void init();
-    void addingEntery(int64_t price, int64_t amount, bool isbid, int64_t lastId);
+    void addingEntery(int64_t price, int64_t amount, bool isbid);
+    void asksSize();
+    void bidsSize();
+    void clearBooks();
     int64_t lastId_Snapshot;
+    int64_t localId = 0;
+    bool isin_Sync = false;
     void updateDepthBased(struct DepthUpdate* Udp);
     void printTop(int levels);
     

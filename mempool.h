@@ -24,6 +24,7 @@ struct DepthUpdate
     int64_t quantity; //was long double
     bool isitBid;
     uint64_t id_sequence;
+    int64_t U_first;
 };
 
 class MemoryPoolSet
