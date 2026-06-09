@@ -28,7 +28,6 @@ void* MemoryPoolBase::allocateSystemSize(size_t uSize)
         std::cout<< "\n allocating memory size of.. "<< uSize;
     }
     allocatetotalnumcall++;
-    //std::cout<< "\n memorypool created of, "<< pvResult << ". num of call: " << allocatetotalnumcall;
     return pvResult;
 }
 
