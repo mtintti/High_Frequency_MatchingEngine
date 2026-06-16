@@ -1,4 +1,5 @@
 15 minuutin run 
+```
 --- top 5 asks (lowest first) ---
  ask: 66416.85 qty: 5.09938
  ask: 66416.86 qty: 0.00032
@@ -32,3 +33,4 @@ order book:
   bid levels    : 1404
   ask levels    : 1451
 =========================================
+```
