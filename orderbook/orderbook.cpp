@@ -1,8 +1,8 @@
-#include "orderbook.h"
-#include "mempool.h"
-#include "profile.h"
-#include "orderbookSnapshot.h"
-#include "main.h"
+#include "../orderbook/orderbook.h"
+#include "../memory/mempool.h"
+#include "../profile.h"
+#include "../marketData/marketdata_Snapshot.h"
+#include "../main.h"
 
 orderbook obook;
 void orderbook::addingEntery(int64_t price, int64_t amount, bool isbid)

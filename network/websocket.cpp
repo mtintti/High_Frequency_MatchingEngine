@@ -5,16 +5,15 @@
 #include <numeric>
 #include <vector>
 #include "websocket.h"
-#include "mempool.h"
-#include "orderbook.h"
-#include "profile.h"
-#include "fast_float.h"
+#include "../memory/mempool.h"
+#include "../orderbook/orderbook.h"
+#include "../profile.h"
+#include "../fast_float.h"
+#include "read_parser.h"
 #include "regex"
 
 
-using depthPool = MemoryPool<sizeof(DepthUpdate)>;
-using BuffersPool = MemoryPool<8000>;
-int totalcount = 0;
+//int totalcount = 0;
 class session : public std::enable_shared_from_this<session>
 {
     boost::asio::ip::tcp::resolver resolver;
@@ -27,7 +26,7 @@ class session : public std::enable_shared_from_this<session>
     std::string textvar;
     int totalCallsHaveHappened = 0;
     boost::json::stream_parser streamParser;
-    std::atomic<size_t> pool_blocks_in_use;
+    //std::atomic<size_t> pool_blocks_in_use;
 
 public:
     session(boost::asio::io_context &ioc, boost::asio::ssl::context &coSSL)
@@ -36,7 +35,7 @@ public:
           ws(boost::asio::make_strand(ioc), (coSSL))
 
     {
-        depthPool::instance().prewarmAtStart(8000);
+        //depthPool::instance().prewarmAtStart(8000);
     };
 
     void run(const char *host, const char *port, const char *endpoint)
@@ -115,15 +114,7 @@ public:
             flatbuff,
             boost::asio::bind_executor(strandWs, boost::beast::bind_front_handler(&session::on_read, shared_from_this())));
     }
-    typedef std::pair<int, int> SplitFloat;
-    SplitFloat split(float val, int pres)
-    {
-        float left = std::floor(val);
-        //std::cout << "\n left: " << left << ", val - left "<< val << " " << left;
-        float right = (val - left) * float(std::pow(10, pres));
-        return SplitFloat(left, right);
-    };
-
+    
 
     void on_read(
         boost::beast::error_code ec,
@@ -164,7 +155,9 @@ public:
         };
         auto parserDone = streamParser.release();
         auto &dataObj = parserDone.as_object();
-        std::string_view symbol = dataObj.at("s").as_string();
+        parser_json(dataObj);
+        
+        /*std::string_view symbol = dataObj.at("s").as_string();
         auto timeOfEvent = dataObj.at("E").as_int64();
         auto firstID = dataObj.at("U").as_int64();
         auto lastID = dataObj.at("u").as_int64();
@@ -241,12 +234,13 @@ public:
                     std::cout << "\n sync (1) or not (0)? " << obook.isin_Sync;
                     std::cout << "\n websock priceOf: " << priceOf << " qAm "<< quantityAmount;
                     std::cout << "\n after conversion ";
-                    std::cout << price5 << " " << amount5;*/
+                    std::cout << price5 << " " << amount5;* /
                     totalcount = 0;
                 }
 
             };
         }
+        */
 
         {
             auto us = std::chrono::duration_cast<std::chrono::microseconds>(

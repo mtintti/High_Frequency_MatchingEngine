@@ -175,8 +175,7 @@ void MemoryPool<Sz>::recycle()
             break;
         }
     }
-}
-
+} 
 template <size_t Sz>
 void MemoryPool<Sz>::createInstance()
 {
