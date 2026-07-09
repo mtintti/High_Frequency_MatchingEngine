@@ -5,6 +5,8 @@
 #include "windcertsload.h"
 #include "profile.h"
 #include "orderbook/orderbook.h"
+#include "clients/clients.h"
+#include "clients/validator_sequencer/validator_sequence.h"
 
 std::vector<std::string> durationvec;
 inline void installTerminateHandler()
@@ -63,37 +65,57 @@ int main(const int argc, char *argv[])
     //std::cout << "\n high matching engine";
     windowsCertificateStore(contextSSL);
     getRequestOrderBook(contextSSL);
-    
+
+    srand(static_cast<unsigned>(time(nullptr)));
+    Clients clients;
     
     int threads = 2;
     boost::asio::io_context ioc;
+    std::atomic<bool> trades_isrunning = true; 
     windowsCertificateStore(coSSL);
     boost::asio::signal_set signals(ioc, SIGINT, SIGTERM);
+
+
     signals.async_wait([&](auto, auto){
+        trades_isrunning = false;
         ioc.stop();
     });
+
     websocketsTrade(ioc, coSSL, host, port, endpoint);
+    clients.createClients(600);
+
+    // trades for matching engine in a separate thread
+    std::thread trades([&] {
+        while (trades_isrunning){    
+            clients.generateTradeBehavior();
+            //std::this_thread::sleep_for(
+            //std::chrono::milliseconds(50));
+        };
+    });
+
+
+    // networking thread
     std::vector<std::thread> vec;
     vec.reserve(threads - 1);
     for (auto i = 0; i < threads - 1; i++)
     {
         vec.emplace_back([&ioc]{
             std::cout << "\n in threads loop";
-            ioc.run();
-                      
+            ioc.run();          
             std::cout << " after ico.run"; 
         });
     };
     ioc.run();
+
     for (auto &t : vec)
     {            
         t.join();
+        trades.join();
         
         obook.printTop(5);
         HFTProfiler::instance().print(); 
     };
-    for(size_t j = 0; j < durationvec.size(); j++){
-    };
+    
     return EXIT_SUCCESS;
     
 };
