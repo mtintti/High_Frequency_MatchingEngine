@@ -26,6 +26,9 @@ public:
         POOL_DEALLOC,
         SNAPSHOT_GET,
         SNAPSHOT_PARSE,
+        GENERATE_TRADE_BEHAVIOR,
+        VALIDATE,
+        SEQUENCE,
         STAGE_COUNT
     };
 
@@ -62,15 +65,42 @@ public:
         book_asks.store(asks, std::memory_order_relaxed);
     }
 
+    void recordValidateSize(size_t clients_total_passed, size_t clients_passed_this_second) {
+        total_passed.store(clients_total_passed, std::memory_order_relaxed);
+        total_passed_second.store(clients_passed_this_second, std::memory_order_relaxed);
+
+        // Track peak *throughput* (best passed/sec seen), not peak of the
+        // ever-growing total - that number is only ever equal to "latest".
+        size_t prev_peak = validate_peak.load(std::memory_order_relaxed);
+        while (clients_passed_this_second > prev_peak &&
+               !validate_peak.compare_exchange_weak(prev_peak, clients_passed_this_second,
+                   std::memory_order_relaxed)) {}
+    } 
+
+    void generateTradeBehavior(size_t clients_generated, size_t generated_this_second) {
+        client_trade_behavior.store(clients_generated, std::memory_order_relaxed);
+        total_generated_second.store(generated_this_second, std::memory_order_relaxed);
+
+        // Track peak *throughput* (best passed/sec seen), not peak of the
+        // ever-growing total - that number is only ever equal to "latest".
+        size_t prev_peak = trade_behavior_peak.load(std::memory_order_relaxed);
+        while (generated_this_second > prev_peak &&
+               !trade_behavior_peak.compare_exchange_weak(prev_peak, generated_this_second,
+                   std::memory_order_relaxed)) {}
+    } 
+
     void print() const {
         static const char* names[] = {
-            "ws_read       ",
-            "json_parse    ",
-            "orderbook_upd ",
-            "pool_alloc    ",
-            "pool_dealloc  ",
-            "snapshot_get  ",
-            "snapshot_parse",
+            "ws_read       ", // WS_READ           = 0
+            "json_parse    ", // JSON_PARSE        = 1
+            "orderbook_upd ", // ORDERBOOK_UPDATE  = 2
+            "pool_alloc    ", // POOL_ALLOC        = 3
+            "pool_dealloc  ", // POOL_DEALLOC      = 4
+            "snapshot_get  ", // SNAPSHOT_GET      = 5
+            "snapshot_parse", // SNAPSHOT_PARSE    = 6
+            "gene_trade_beh",
+            "validate      ", // VALIDATE          = 7
+            "sequence      ", // SEQUENCE          = 8
         };
 
         std::cout << "\n";
@@ -107,12 +137,20 @@ public:
 
         std::cout << std::string(76, '-') << "\n";
         std::cout << "memory pool:\n";
-        std::cout << "  allocated now : " << pool_allocated << " blocks\n";
+        std::cout << "  allocated now: " << pool_allocated << " blocks\n";
         std::cout << "  peak allocated: " << pool_peak      << " blocks\n";
-        std::cout << "  pool capacity : " << pool_capacity  << " blocks\n";
-        std::cout << "order book:\n";
-        std::cout << "  bid levels    : " << book_bids.load() << "\n";
-        std::cout << "  ask levels    : " << book_asks.load() << "\n";
+        std::cout << "  pool capacity: " << pool_capacity  << " blocks\n";
+        std::cout << "marketData order book:\n";
+        std::cout << "  bid levels: " << book_bids.load() << "\n";
+        std::cout << "  ask levels: " << book_asks.load() << "\n";
+        std::cout << "generate trade behavior:\n";
+        std::cout << "  generated total: " << client_trade_behavior.load() << "\n";
+        std::cout << "  generated per second: " << total_generated_second.load() << "\n";
+        std::cout << "  peak: " << trade_behavior_peak.load() << "\n";
+        std::cout << "validate:\n";
+        std::cout << "  passed total: " << total_passed.load() << "\n";
+        std::cout << "  passed per second: " << total_passed_second.load() << "\n";
+        std::cout << "  peak: " << validate_peak.load() << "\n";
         std::cout << "=========================================\n";
     }
 
@@ -132,10 +170,16 @@ private:
     size_t pool_peak{0};
     std::atomic<size_t> book_bids{0};
     std::atomic<size_t> book_asks{0};
+    std::atomic<size_t> client_trade_behavior{0};
+    std::atomic<size_t> total_generated_second{0};
+    std::atomic<size_t> trade_behavior_peak{0};
+    std::atomic<size_t> total_passed{0};
+    std::atomic<size_t> total_passed_second{0};
+    std::atomic<size_t> validate_peak{0};
 };
 
 struct ScopedTimer {
-    using clock = std::chrono::high_resolution_clock;
+    using clock = std::chrono::steady_clock;
     HFTProfiler::Stage stage;
     clock::time_point  start;
 

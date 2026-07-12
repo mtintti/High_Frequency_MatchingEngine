@@ -5,6 +5,8 @@
 #include "../main.h"
 
 orderbook obook;
+
+// snapshot oderbook addingEntery käyttää tätä
 void orderbook::addingEntery(int64_t price, int64_t amount, bool isbid)
 {
     // std::cout << "\n in orderbook";
@@ -37,20 +39,31 @@ void orderbook::addingEntery(int64_t price, int64_t amount, bool isbid)
     }
 }
 
-void orderbook::asksSize()
+void orderbook::asks_current_price()
 {
-    std::cout << "\n bids size " << asks.size();
+    //if(pendingSnapshots != 1){
+    // std::cout << "\n bids size " << asks.size();
+    auto firstAsk = asks.begin();
+    auto currentMarketprice = firstAsk->first;
+    lastest_best_askprice = currentMarketprice;
+    //} else {
+      //  std::cout << "\n pending fetching current marketPrice..";
+      //  return 0;
+    //};
 }
 
-void orderbook::bidsSize()
-{
-    std::cout << "\n bids size " << bids.size();
+void orderbook::bids_current_price(){
+    // std::cout << "\n bids size " << bids.size();
+    auto firstBid = bids.begin();
+    auto currentMarketprice = firstBid->first;
+    lastest_best_bidprice= currentMarketprice;
 }
 
-void orderbook::clearBooks(){
+void orderbook::clearBooks()
+{
     asks.clear();
     bids.clear();
-    std::cout << "\n bids and asks cleared ";
+    // std::cout << "\n bids and asks cleared ";
 };
 
 void orderbook::updateDepthBased(struct DepthUpdate *Udp)
@@ -62,8 +75,8 @@ void orderbook::updateDepthBased(struct DepthUpdate *Udp)
     {
         if (Udp->id_sequence <= lastId_Snapshot)
         {
-            std::cout << "\n not in sync, id_sequence is <= than snapshots id";
-            std::cout << "\n ", Udp->id_sequence, " ", lastId_Snapshot;
+            // std::cout << "\n not in sync, id_sequence is <= than snapshots id";
+            // std::cout << "\n ", Udp->id_sequence, " ", lastId_Snapshot;
             return;
         }
         if (Udp->U_first <= lastId_Snapshot + 1 && Udp->id_sequence >= lastId_Snapshot + 1)
@@ -73,7 +86,7 @@ void orderbook::updateDepthBased(struct DepthUpdate *Udp)
                       << "\nU=" << Udp->U_first
                       << "\nu=" << Udp->id_sequence
                       << "\nsnapshot=" << lastId_Snapshot;
-            std::cout << "\n is synced just fine";
+            // std::cout << "\n is synced just fine";
         }
         /*else
         {
@@ -82,50 +95,71 @@ void orderbook::updateDepthBased(struct DepthUpdate *Udp)
         }*/
     }
 
-    if (Udp->U_first > localId + 1)
+    
+    if (Udp->U_first > localId + 1 && pendingSnapshots != 1)
     {
         isin_Sync = false;
-        std::cout << "\n out of sync, getting orderbook snapshot again";
+        pausing_dUp = true;
+        // std::cout << "\n out of sync, getting orderbook snapshot again";
         std::cout
             << "\nGAP"
             << "\nU=" << Udp->U_first
             << "\nlocal=" << localId;
-        getRequestOrderBook(contextSSL);
+        //getRequestOrderBook(contextSSL);
+        //get_market_data = true;
+        // std::lock_guard<std::mutex> lock(m);
+
+        //get_market_data = true;
+        {
+            std::lock_guard<std::mutex> lock(snapshotMutex);
+            pendingSnapshots = 1;
+        }
+
+        cv.notify_one();
+
         return;
     }
-
-    // before syncing check
-    if (Udp->quantity == 0)
-    {
-        if (Udp->isitBid)
+    // race conditionin takia katsotaan että pending snapshot ei ole tapahtumassa. add_memEvent.cpp:ssä pausataan lähettäminen dUp updateDepthBased jos snapshot on tapahtumassa by pausing_dUp = false.
+    /* muistiin mitä tapahtui
+        Diagnosed and resolved a data race in a shared order book (std::map) accessed from a market-data thread
+        and a resync thread; reduced worst-case update latency from 23ms to 2.8ms
+    */
+    if(pendingSnapshots != 1 && pausing_dUp != true){
+    
+        if (Udp->quantity == 0)
         {
-            // std::cout << "\n removing bid, was 0";
-            bids.erase(Udp->price);
+            if (Udp->isitBid)
+            {
+                bids.erase(Udp->price);
+            }
+            else
+            {
+                asks.erase(Udp->price);
+            }
         }
         else
         {
-            // std::cout << "\n removing ask, was 0";
-            asks.erase(Udp->price);
-        }
-    }
-    else
-    {
-        // std::cout << "\n from depth " << Udp->id_sequence << " lastid for snapshot " << lastId_Snapshot;
-        if (Udp->isitBid)
-        {
-            // std::cout << "\n adding bid, ", Udp->price ," ", Udp->quantity;
-            bids.insert_or_assign(Udp->price, Udp->quantity);
-        }
-        else
-        {
-            // std::cout << "\n adding ask, ", Udp->price ," ", Udp->quantity;
-            asks.insert_or_assign(Udp->price, Udp->quantity);
+            if (Udp->isitBid)
+            {
+                bids.insert_or_assign(Udp->price, Udp->quantity);
+                bids_current_price();
+            }
+            else
+            {
+                asks.insert_or_assign(Udp->price, Udp->quantity);
+                asks_current_price();
+            };
         };
-    };
-    localId = Udp->id_sequence;
-    // std::cout << "\n local id is, " << localId;
-    HFTProfiler::instance().recordOrderBookSize(
-        obook.bids.size(), obook.asks.size());
+        localId = Udp->id_sequence;
+        HFTProfiler::instance().recordOrderBookSize(
+            obook.bids.size(), obook.asks.size());
+        } else {
+            if(pendingSnapshots == 1){ 
+                std::cout << "\n snapshot is happening ";
+                return;
+            };
+        };
+    
 };
 
 void orderbook::printTop(int levels)
@@ -139,7 +173,6 @@ void orderbook::printTop(int levels)
         auto price = priceS.insert(5, ".");
 
         auto amount = (it->second / 100000.0);
-        // std::cout << "\n raw " << it->first << " " << it->second;
         std::cout << "\n ask: " << price << " qty: " << amount;
     }
 
@@ -151,13 +184,11 @@ void orderbook::printTop(int levels)
         auto priceS = std::to_string(it->first);
         auto price = priceS.insert(5, ".");
 
-        // std::cout << "\n raw " << it->first << " " << it->second;
         std::cout << "\n bid: " << price << " qty: " << amount;
     }
     std::cout << "\n --- raw spread " << asks.begin()->first << " b: " << bids.begin()->first << "--\n";
     auto priceA = asks.begin()->first;
     auto priceB = bids.begin()->first;
     int64_t diff = priceA - priceB;
-    // std::cout << " " << diff;
     std::cout << "\n--- spread: " << diff * 0.01 << " ---\n";
 }

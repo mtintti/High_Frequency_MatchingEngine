@@ -6,11 +6,11 @@
 
 using depthPool = MemoryPool<sizeof(DepthUpdate)>;
 using BuffersPool = MemoryPool<8000>;
+std::atomic<size_t> pool_blocks_in_use;
 
 void memoryEvent(int64_t price5, int64_t amount5, bool bidExist, int64_t firstID, int64_t lastID)
 {
     int totalcount = 0;
-    std::atomic<size_t> pool_blocks_in_use;
 
     void *mpool;
     {
@@ -38,8 +38,13 @@ void memoryEvent(int64_t price5, int64_t amount5, bool bidExist, int64_t firstID
 
     {
         ScopedTimer t(HFTProfiler::ORDERBOOK_UPDATE);
-        obook.updateDepthBased(dUp);
+        
+        if(obook.pausing_dUp != true){
+            obook.updateDepthBased(dUp);
+        }
+        
     }
+
 
     {
         ScopedTimer t(HFTProfiler::POOL_DEALLOC);

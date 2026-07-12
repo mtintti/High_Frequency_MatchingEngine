@@ -1,7 +1,11 @@
 #include <iostream>
 #include "clients.h"
+#include "../main.h"
+#include "../profile.h"
 #include "validator_sequencer/validator_sequence.h"
 #include <algorithm>
+
+
 
 void Clients::createClients(int max_clients){
     client_vec.clear(); // poistetaan leftover tiedot
@@ -25,8 +29,10 @@ void Clients::createClients(int max_clients){
         double multiplier = volatility[index_multiplier];
         double wealth_multiplier = wealth[index_wealth_multiplier];
         
-        int clients_funds = ((rand() % (22001 - 4000)+1) * (wealth_multiplier)); // previously clients can have max 10k in funds/money in acc
+        int clients_funds = ((rand() % (22001 - 400)+1) * (wealth_multiplier)); // clientin funds_to_use minimi on laitettu 400. less than 0 on validator debug print statementissa 0, jo usean 14-16 minuutin program run:in ajan.
+        if(clients_funds <= 0 ){clients_funds = ((rand() % (22001 - 400)+1) * (wealth_multiplier));};
         client_info.money = clients_funds;
+        
         client_info.bitcoin_amount = 010 * wealth_multiplier;
         client_info.volatility = multiplier;
         client_info.wealth = wealth_multiplier;
@@ -37,7 +43,6 @@ void Clients::createClients(int max_clients){
             client_info.swarm = false;
         }
         
-        
         client_vec.emplace_back(client_info);
     };
 
@@ -45,12 +50,20 @@ void Clients::createClients(int max_clients){
     auto found = std::minmax_element(begin(client_vec), end(client_vec), [] (invi_client const s1, invi_client const s2){ return s1.money < s2.money;});
     std::cout << "\n max funds for client: " <<found.second->client_id << " funds: "<< found.second->money;
     std::cout << "\n minimum funds for client: " <<found.first->client_id << " funds: " << found.first->money;
+    trades_isrunning = true;
     
      
 };
 
 void Clients::generateTradeBehavior(){
     // otetaan randomisti yksi client_vec clientti. 
+        
+        auto start = std::chrono::steady_clock::now();
+        auto duration_since_epoch = start.time_since_epoch();
+        int64_t current_second = std::chrono::duration_cast<std::chrono::seconds>(duration_since_epoch).count();
+        int64_t expected_zero = 0;
+        last_printed_second_generate_beh.compare_exchange_strong(expected_zero, current_second);
+        
    
         int clients_tochoose = rand() % client_vec.size();
         auto& client = client_vec.at(clients_tochoose);
@@ -60,8 +73,35 @@ void Clients::generateTradeBehavior(){
         } else if (buy_or_sell == 0){
             client.typeofOrder = "sell";
         }
-        int64_t funds_to_use = (rand() % (client.money % 10 - 100)+1) * (client.volatility);
 
+        clients_number++;
+       
+        
+        int64_t funds_to_use = std::max<int64_t>(10,(rand() % (client.money)+1)) * (client.volatility);
+        if( funds_to_use <= 0) {
+            std::cout << "\n clients fund were zero, " << funds_to_use;
+        };
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(
+                          std::chrono::steady_clock::now() - start)
+                          .count();
+        HFTProfiler::instance().recordStage(HFTProfiler::GENERATE_TRADE_BEHAVIOR, static_cast<uint64_t>(us));
+        
+        
+        int64_t last_sec = last_printed_second_generate_beh.load();
+    if (current_second > last_sec)
+    {
+        if (last_printed_second_generate_beh.compare_exchange_strong(last_sec, current_second))
+        {
+            
+            int64_t current_clients_generated = clients_number.load();
+            int64_t total_gen_snapshot = last_total_gen_snapshot.load();
+            
+            int64_t clients_genereted_this_second = current_clients_generated - total_gen_snapshot;
+            HFTProfiler::instance().generateTradeBehavior(
+                static_cast<size_t>(clients_number), static_cast<size_t>(clients_genereted_this_second));
+             last_total_gen_snapshot.store(current_clients_generated); 
+        };
+    };
         //std::cout << "\n client chosen: " << client.client_id << ", typeof: " << client.typeofOrder << ", swarm: "<< client.swarm << ", volatility: "<< client.volatility<< ", wealth: "<< client.wealth<< ", funds to use: " << funds_to_use << " in account: "<< client.money;
         //std::cout << "\n bitcoin amount: "<< client.bitcoin_amount * 0.01 << "portofolio val: "<< (client.bitcoin_amount * 0.01) * (6252130 * 0.01);
         Validator val;

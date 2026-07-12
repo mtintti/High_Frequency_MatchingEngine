@@ -1,6 +1,8 @@
 #include <iostream>
 #include <map>
 #include <functional> 
+extern std::atomic<bool>pausing_dUp;
+
 
 class orderbook{
     std::map<int64_t, int64_t, std::less<int64_t>> asks;  //sorted, lowest first
@@ -12,14 +14,18 @@ class orderbook{
     public: 
     void init();
     void addingEntery(int64_t price, int64_t amount, bool isbid);
-    void asksSize();
-    void bidsSize();
+    void asks_current_price();
+    void bids_current_price();
     void clearBooks();
-    int64_t lastId_Snapshot;
-    int64_t localId = 0;
-    bool isin_Sync = false;
+    std::atomic<int64_t> lastId_Snapshot;
+    std::atomic<int64_t> localId = 0;
+    std::atomic<bool> isin_Sync = false;
     void updateDepthBased(struct DepthUpdate* Udp);
     void printTop(int levels);
+
+    std::atomic<bool> pausing_dUp = false;
+    std::atomic<uint64_t> lastest_best_askprice;
+    std::atomic<uint64_t> lastest_best_bidprice;
     
 };
 extern orderbook obook;

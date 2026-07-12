@@ -7,4 +7,5 @@ class Validator
 public:
     void validate(invi_client &client, int64_t funds_to_use);
     
+    
 };
