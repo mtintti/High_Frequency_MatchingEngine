@@ -2,9 +2,8 @@
 #include "clients.h"
 #include "../main.h"
 #include "../profile.h"
-#include "validator_sequencer/validator_sequence.h"
 #include <algorithm>
-
+extern std::atomic<int64_t> curr_marketPrice;
 
 
 void Clients::createClients(int max_clients){
@@ -33,7 +32,7 @@ void Clients::createClients(int max_clients){
         if(clients_funds <= 0 ){clients_funds = ((rand() % (22001 - 400)+1) * (wealth_multiplier));};
         client_info.money = clients_funds;
         
-        client_info.bitcoin_amount = 010 * wealth_multiplier;
+        client_info.bitcoin_amount = 10 * wealth_multiplier;
         client_info.volatility = multiplier;
         client_info.wealth = wealth_multiplier;
         int swarm_or_not = rand() % 4;
@@ -57,7 +56,6 @@ void Clients::createClients(int max_clients){
 
 void Clients::generateTradeBehavior(){
     // otetaan randomisti yksi client_vec clientti. 
-        
         auto start = std::chrono::steady_clock::now();
         auto duration_since_epoch = start.time_since_epoch();
         int64_t current_second = std::chrono::duration_cast<std::chrono::seconds>(duration_since_epoch).count();
@@ -76,10 +74,17 @@ void Clients::generateTradeBehavior(){
 
         clients_number++;
        
+        int64_t money_kneecapped = client.money * 0.7;
         
-        int64_t funds_to_use = std::max<int64_t>(10,(rand() % (client.money)+1)) * (client.volatility);
+        
+        if(client.typeofOrder == "sell"){
+            money_kneecapped = (client.bitcoin_amount * 0.01) * (6400000 * 0.01) * 0.7;
+        }
+        int64_t funds_to_use = std::max<int64_t>(10,(rand() % (money_kneecapped)+1));
+        //std::cout << "\n money kneecapped at "<< money_kneecapped <<" using client money " << client.money << " * 0.7 " << "client.bitcoin_amount " << (client.bitcoin_amount * 0.01);
         if( funds_to_use <= 0) {
-            std::cout << "\n clients fund were zero, " << funds_to_use;
+            std::cout << "\n clients fund were zero, " << funds_to_use << "portofolio val " << (client.bitcoin_amount * 0.01) * (77500 * 0.01);
+            funds_to_use = std::max<int64_t>(10,(rand() % (client.money)+1));
         };
         auto us = std::chrono::duration_cast<std::chrono::microseconds>(
                           std::chrono::steady_clock::now() - start)
@@ -103,8 +108,7 @@ void Clients::generateTradeBehavior(){
         };
     };
         //std::cout << "\n client chosen: " << client.client_id << ", typeof: " << client.typeofOrder << ", swarm: "<< client.swarm << ", volatility: "<< client.volatility<< ", wealth: "<< client.wealth<< ", funds to use: " << funds_to_use << " in account: "<< client.money;
-        //std::cout << "\n bitcoin amount: "<< client.bitcoin_amount * 0.01 << "portofolio val: "<< (client.bitcoin_amount * 0.01) * (6252130 * 0.01);
-        Validator val;
+        //std::cout << "\n bitcoin amount: "<< client.bitcoin_amount * 0.01 << " portofolio val: "<< (client.bitcoin_amount * 0.01) * (77500 * 0.01);
         val.validate(client, funds_to_use);
         
 };

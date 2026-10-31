@@ -6,7 +6,6 @@
 #include "profile.h"
 #include "orderbook/orderbook.h"
 #include "clients/clients.h"
-#include "clients/validator_sequencer/validator_sequence.h"
 
 std::vector<std::string> durationvec;
 std::condition_variable cv;
@@ -71,7 +70,6 @@ int main(const int argc, char *argv[])
 
     srand(static_cast<unsigned>(time(nullptr)));
     Clients clients;
-
     int threads = 2;
     boost::asio::io_context ioc;
     windowsCertificateStore(coSSL);
@@ -86,7 +84,7 @@ int main(const int argc, char *argv[])
 
     
     websocketsTrade(ioc, coSSL, host, port, endpoint);
-    clients.createClients(700);
+    clients.createClients(900);
 
     // std::cout << "getmarketdata main "<< get_market_data; std::unique_lock lock(m);
 

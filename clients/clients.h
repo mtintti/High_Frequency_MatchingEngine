@@ -1,10 +1,9 @@
+#pragma once
 #include <iostream>
 #include <vector>
 #include <boost/asio/io_context.hpp>
 #include <list>
-
-#pragma once
-
+#include "validator_sequencer/validator_sequence.h"
 
 
 struct invi_client{
@@ -22,6 +21,7 @@ struct invi_client{
 class Clients{
     public:
         //int max_clients = 10;
+        Validator val;
         void createClients(int max_clients);
         void generateTradeBehavior();
         double volatility[3] = {1.7, 1.1, 0.5};

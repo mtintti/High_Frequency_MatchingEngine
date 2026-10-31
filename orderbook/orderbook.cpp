@@ -119,11 +119,7 @@ void orderbook::updateDepthBased(struct DepthUpdate *Udp)
 
         return;
     }
-    // race conditionin takia katsotaan että pending snapshot ei ole tapahtumassa. add_memEvent.cpp:ssä pausataan lähettäminen dUp updateDepthBased jos snapshot on tapahtumassa by pausing_dUp = false.
-    /* muistiin mitä tapahtui
-        Diagnosed and resolved a data race in a shared order book (std::map) accessed from a market-data thread
-        and a resync thread; reduced worst-case update latency from 23ms to 2.8ms
-    */
+    
     if(pendingSnapshots != 1 && pausing_dUp != true){
     
         if (Udp->quantity == 0)
