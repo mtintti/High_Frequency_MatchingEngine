@@ -23,7 +23,6 @@ void Clients::createClients(int max_clients){
         int index_multiplier = rand() % (sizeof(volatility) / sizeof(volatility[0]));
         int index_wealth_multiplier = rand() % (sizeof(wealth) / sizeof(wealth[0]));
         
-        client_info.typeofOrder = "not set";
         client_info.ticket_name = "bitcoin";
         double multiplier = volatility[index_multiplier];
         double wealth_multiplier = wealth[index_wealth_multiplier];
@@ -67,9 +66,9 @@ void Clients::generateTradeBehavior(){
         auto& client = client_vec.at(clients_tochoose);
         int buy_or_sell = rand() % 2;
         if (buy_or_sell == 1){
-            client.typeofOrder = "buy";
+            client.typeofOrder = Side::BUY;
         } else if (buy_or_sell == 0){
-            client.typeofOrder = "sell";
+            client.typeofOrder = Side::SELL;
         }
 
         clients_number++;
@@ -77,7 +76,7 @@ void Clients::generateTradeBehavior(){
         int64_t money_kneecapped = client.money * 0.7;
         
         
-        if(client.typeofOrder == "sell"){
+        if(client.typeofOrder == Side::SELL){
             money_kneecapped = (client.bitcoin_amount * 0.01) * (6400000 * 0.01) * 0.7;
         }
         int64_t funds_to_use = std::max<int64_t>(10,(rand() % (money_kneecapped)+1));

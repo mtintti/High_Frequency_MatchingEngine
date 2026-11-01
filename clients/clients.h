@@ -4,12 +4,13 @@
 #include <boost/asio/io_context.hpp>
 #include <list>
 #include "validator_sequencer/validator_sequence.h"
+#include "../matchingEngine/matchingEngine.h"
 
 
 struct invi_client{
     int64_t client_id;
     int64_t money;
-    std::string typeofOrder;
+    Side typeofOrder;
     int64_t bitcoin_amount = 0; // total_amount_of_coin_holdings
     std::string ticket_name;
     double volatility;

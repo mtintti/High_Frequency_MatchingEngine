@@ -3,15 +3,18 @@
 #include <chrono>
 #include <atomic>
 #include <mutex>
+#include "../../matchingEngine/matchingEngine.h"
+
 using namespace std;
 struct invi_client;
-class Validator
-{
+
+class Validator{
 
 public:
     void validate(invi_client &client, int64_t funds_to_use);
-    void sequencer(invi_client &client);
-    long long gen_timestamp(long client_id);
+    void sequencer(invi_client &client, int64_t funds_to_use);
+    long long gen_timestamp(long client_id, std::atomic<long long> per_client_seq_array[]);
+    OrdertoMatch order_for_matching;
 
     private:
     const long long epoch = 1704067200000LL;

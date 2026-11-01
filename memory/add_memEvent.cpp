@@ -5,7 +5,7 @@
 #include "add_memEvent.h"
 
 using depthPool = MemoryPool<sizeof(DepthUpdate)>;
-using BuffersPool = MemoryPool<8000>;
+using BuffersPool = MemoryPool<50>;
 std::atomic<size_t> pool_blocks_in_use;
 
 void memoryEvent(int64_t price5, int64_t amount5, bool bidExist, int64_t firstID, int64_t lastID)
@@ -18,7 +18,7 @@ void memoryEvent(int64_t price5, int64_t amount5, bool bidExist, int64_t firstID
         mpool = depthPool::instance().allocate();
         HFTProfiler::instance().recordPoolState(
             ++pool_blocks_in_use,
-            8000);
+            50);
     }
     DepthUpdate *dUp = new (mpool) DepthUpdate{};
     if (bidExist)

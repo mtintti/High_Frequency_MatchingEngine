@@ -6,6 +6,7 @@
 #include "profile.h"
 #include "orderbook/orderbook.h"
 #include "clients/clients.h"
+#include "memory/matchingEngine_pool.h"
 
 std::vector<std::string> durationvec;
 std::condition_variable cv;
@@ -85,6 +86,7 @@ int main(const int argc, char *argv[])
     
     websocketsTrade(ioc, coSSL, host, port, endpoint);
     clients.createClients(900);
+    matchPool::prewarmAtStart(2000000);
 
     // std::cout << "getmarketdata main "<< get_market_data; std::unique_lock lock(m);
 

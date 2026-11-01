@@ -25,9 +25,10 @@ std::atomic<int64_t> same_ms_count{0};
 std::atomic<int64_t> new_ms_count{0};
 std::atomic<int64_t> sequence_calls{0};
 std::atomic<int64_t> else_branche_calls{0};
+std::atomic<long long> per_client_seq_array[2];
 std::atomic<int64_t> curr_marketPrice = 6400000; // asetettu numero bitcoin pricelle, ennen kuin oikea current bitcoin asks price has been gotten.
 
-long long Validator::gen_timestamp(long client_id){
+long long Validator::gen_timestamp(long client_id, std::atomic<long long> per_client_seq_array[]){
     lock_guard<mutex> lock(mtx);
     long long timestamp_touse = currtime_ms();
     sequence_calls.fetch_add(1, std::memory_order_relaxed);
@@ -52,18 +53,25 @@ long long Validator::gen_timestamp(long client_id){
     lastused_timestamp = timestamp_touse;
     timestamp_client = timestamp_touse;
     sequence_client = sequence;
-    //std::cout<<"\n timestamp for client "<< client_id<<" timestamp: "<<((timestamp_touse - epoch) << 22) << " and sequence: "<<sequence;
+    //std::cout<<"\n timestamp for client "<< client_id<<" timestamp: "<<((timestamp_touse - epoch) << 22) << " and sequence: "<<sequence << " timestamp as-is "<< timestamp_touse;
     //std::cout << " ";
     
-    return (timestamp_touse - epoch) | sequence;
+    per_client_seq_array[0].store(timestamp_touse,std::memory_order_relaxed);
+    per_client_seq_array[1].store(sequence,std::memory_order_relaxed);
     
 }
 
-void Validator::sequencer(invi_client &client){
+void Validator::sequencer(invi_client &client, int64_t funds_to_use){
     //std::cout<<"\n timestamp for client "<< client.client_id;
     long client_id = client.client_id;
-    long long timestamp_per_client = gen_timestamp(client_id);
-    //std::cout << " " << timestamp_per_client;
+    
+    gen_timestamp(client_id, per_client_seq_array);
+    //std::cout << "\n timestamp: " << per_client_seq_array[0] << " seq: "<<per_client_seq_array[1];
+    
+    order_for_matching.timestamp = per_client_seq_array[0];
+    order_for_matching.orderid = per_client_seq_array[1];
+    order_for_matching.orderside = client.typeofOrder;
+    order_for_matching.funds = funds_to_use;
     
 };
 
@@ -80,22 +88,18 @@ void Validator::validate(invi_client &client, int64_t funds_to_use){
     auto start = std::chrono::steady_clock::now();
     ScopedTimer validateTimer(HFTProfiler::VALIDATE);
 
-    if (funds_to_use >= 0)
-    {
-        if (client.ticket_name == "bitcoin")
-        {
-            if (client.typeofOrder == "buy")
-            {
-                if (funds_to_use <= client.money)
-                {
+    if (funds_to_use >= 0){
+        if (client.ticket_name == "bitcoin"){
+            if (client.typeofOrder == Side::BUY){
+                if (funds_to_use <= client.money){
                     clients_total_passed++;
-                    sequencer(client);
+                    sequencer(client, funds_to_use);
                     //std::cout << "\n client id (buy) "<<client.client_id;
                 } else {
                     insuffent_funds++;
                 };
             }
-            else if (client.typeofOrder == "sell")
+            else if (client.typeofOrder == Side::SELL)
             {
                 // checkataan että marketData orderbook ei ole hakemassa uutta snapshottia (pendingSnapshots), ja obook on sync:attu. Muuten haetaan vanhoja tietoja.
                 // pendingSnapshots muutetaan main.cpp marketData thread callissa vasta kuin https binance get request on valmis, jonka jälkeen snapshot muutetaan = 0, joten tämä riitää hyvin.
@@ -109,7 +113,7 @@ void Validator::validate(invi_client &client, int64_t funds_to_use){
                         // can pass to sequencing
                         clients_total_passed++;
                         //std::cout << "\n client id (sell) "<<client.client_id;
-                        sequencer(client);
+                        sequencer(client, funds_to_use);
                     }
                     else
                     {
@@ -154,7 +158,7 @@ void Validator::validate(invi_client &client, int64_t funds_to_use){
             std::cout << "\n Sell over holdings: " << sell_less_than_holdings_value.load();
             std::cout << "\n resync happened, requests not passed " << resync_inprogess_notAccepting.load();
             std::cout << "\n curr_marketPrice " << curr_marketPrice;
-            std::cout << "\n latest client timestamp and sequence: " << timestamp_client.load() << " , " << sequence_client.load();
+            std::cout << "\n latest client timestamp and sequence: " << per_client_seq_array[0].load() << " , " << per_client_seq_array[1].load();
             std::cout << "\n number of timestamp matches " << same_ms_count.load();
             std::cout << "\n number of new gens of timestamps " << new_ms_count.load();
             std::cout << "\n total of sequence calls have happened: "<< sequence_calls.load();
