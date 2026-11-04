@@ -24,6 +24,8 @@ public:
         ORDERBOOK_UPDATE,
         POOL_ALLOC,
         POOL_DEALLOC,
+        MATCHPOOL_ALLOC,
+        MATCHPOOL_DEALLOC,
         SNAPSHOT_GET,
         SNAPSHOT_PARSE,
         GENERATE_TRADE_BEHAVIOR,
@@ -53,11 +55,24 @@ public:
                    std::memory_order_relaxed)) {}
     }
 
-    void recordPoolState(size_t allocated, size_t pool_size) {
-        std::lock_guard<std::mutex> lock(pool_mutex);
-        pool_allocated = allocated;
-        pool_capacity  = pool_size;
-        pool_peak      = std::max(pool_peak, allocated);
+    void recordPoolState(size_t allocated, size_t pool_size, enum Stage s) {
+        switch (s) {
+            case Stage::POOL_ALLOC:{
+                std::lock_guard<std::mutex> lock(pool_mutex);
+                pool_allocated = allocated;
+                pool_capacity  = pool_size;
+                pool_peak      = std::max(pool_peak, allocated);
+                break;
+            }
+            case Stage::MATCHPOOL_ALLOC:{
+                std::lock_guard<std::mutex> lockmatch(matchpool_mutex);
+                matchpool_alloc = allocated;
+                matchpool_capacity  = pool_size;
+                matchpool_peak      = std::max(matchpool_peak, allocated);
+                break;
+            }
+        }
+       
     }
 
     void recordOrderBookSize(size_t bids, size_t asks) {
@@ -96,6 +111,8 @@ public:
             "orderbook_upd ", // ORDERBOOK_UPDATE  = 2
             "pool_alloc    ", // POOL_ALLOC        = 3
             "pool_dealloc  ", // POOL_DEALLOC      = 4
+            "matchpool_alloc ",
+            "matchpool_dealloc ",
             "snapshot_get  ", // SNAPSHOT_GET      = 5
             "snapshot_parse", // SNAPSHOT_PARSE    = 6
             "gene_trade_beh",
@@ -136,10 +153,13 @@ public:
         }
 
         std::cout << std::string(76, '-') << "\n";
-        std::cout << "memory pool:\n";
+        std::cout << "memory pools:\n";
         std::cout << "  allocated now: " << pool_allocated << " blocks\n";
         std::cout << "  peak allocated: " << pool_peak      << " blocks\n";
         std::cout << "  pool capacity: " << pool_capacity  << " blocks\n";
+         std::cout << " matchpool alloc now: " << matchpool_alloc << " blocks\n";
+        std::cout << "  matchpool peak alloc: " << matchpool_peak      << " blocks\n";
+        std::cout << "  matchpool capacity: " << matchpool_capacity  << " blocks\n";
         std::cout << "marketData order book:\n";
         std::cout << "  bid levels: " << book_bids.load() << "\n";
         std::cout << "  ask levels: " << book_asks.load() << "\n";
@@ -165,9 +185,13 @@ private:
     HFTProfiler() = default;
     StageStats stages[STAGE_COUNT];
     std::mutex pool_mutex;
+    std::mutex matchpool_mutex;
     size_t pool_allocated{0};
     size_t pool_capacity{0};
     size_t pool_peak{0};
+    size_t matchpool_alloc{0};
+    size_t matchpool_capacity{0};
+    size_t matchpool_peak{0};
     std::atomic<size_t> book_bids{0};
     std::atomic<size_t> book_asks{0};
     std::atomic<size_t> client_trade_behavior{0};

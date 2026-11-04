@@ -149,7 +149,7 @@ void Validator::validate(invi_client &client, int64_t funds_to_use){
                 static_cast<size_t>(current_passed),
                 static_cast<size_t>(clients_passed_this_second));
 
-            std::cout << "\n -- Validator Check --";
+            /*std::cout << "\n -- Validator Check --";
             std::cout << "\n Clients Passed/Sec: " << clients_passed_this_second;
             std::cout << "\n Total processed: " << clients_total_processed.load();
             std::cout << "\n Total passed: " << current_passed;
@@ -163,7 +163,7 @@ void Validator::validate(invi_client &client, int64_t funds_to_use){
             std::cout << "\n number of new gens of timestamps " << new_ms_count.load();
             std::cout << "\n total of sequence calls have happened: "<< sequence_calls.load();
             std::cout << "\n else branch total calls have happened num of times: "<< else_branche_calls.load();
-            std::cout << "\n";
+            std::cout << "\n";*/
 
             last_total_passed_snapshot.store(current_passed);
         }

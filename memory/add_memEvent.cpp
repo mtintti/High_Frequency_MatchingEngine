@@ -18,7 +18,7 @@ void memoryEvent(int64_t price5, int64_t amount5, bool bidExist, int64_t firstID
         mpool = depthPool::instance().allocate();
         HFTProfiler::instance().recordPoolState(
             ++pool_blocks_in_use,
-            50);
+            50, HFTProfiler::POOL_ALLOC);
     }
     DepthUpdate *dUp = new (mpool) DepthUpdate{};
     if (bidExist)

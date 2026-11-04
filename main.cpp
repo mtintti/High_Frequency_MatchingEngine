@@ -87,7 +87,7 @@ int main(const int argc, char *argv[])
     websocketsTrade(ioc, coSSL, host, port, endpoint);
     clients.createClients(900);
     matchPool::prewarmAtStart(2000000);
-
+    std::cout << "matchPool size" << sizeof(matchPool);
     // std::cout << "getmarketdata main "<< get_market_data; std::unique_lock lock(m);
 
     // trades for matching engine and client creation and their tradeBehavior in a separate thread
