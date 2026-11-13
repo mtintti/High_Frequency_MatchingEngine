@@ -1,7 +1,7 @@
 #include <iostream>
 #include "mempool.h"
 #include "../profile.h"
-#include "../orderbook/orderbook.h"
+#include "../main.h"
 #include "add_memEvent.h"
 
 using depthPool = MemoryPool<sizeof(DepthUpdate)>;
@@ -14,7 +14,7 @@ void memoryEvent(int64_t price5, int64_t amount5, bool bidExist, int64_t firstID
 
     void *mpool;
     {
-        ScopedTimer t(HFTProfiler::POOL_ALLOC);
+        //ScopedTimer t(HFTProfiler::POOL_ALLOC);
         mpool = depthPool::instance().allocate();
         HFTProfiler::instance().recordPoolState(
             ++pool_blocks_in_use,
@@ -47,7 +47,7 @@ void memoryEvent(int64_t price5, int64_t amount5, bool bidExist, int64_t firstID
 
 
     {
-        ScopedTimer t(HFTProfiler::POOL_DEALLOC);
+        //ScopedTimer t(HFTProfiler::POOL_DEALLOC);
         dUp->~DepthUpdate();
         depthPool::instance().deallocate(mpool);
         --pool_blocks_in_use;

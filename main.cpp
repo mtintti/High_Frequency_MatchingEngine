@@ -4,8 +4,8 @@
 #include "marketData/marketdata_Snapshot.h"
 #include "windcertsload.h"
 #include "profile.h"
-#include "orderbook/orderbook.h"
 #include "clients/clients.h"
+#include "clients/validator_sequencer/validator_sequence.h"
 #include "memory/matchingEngine_pool.h"
 
 std::vector<std::string> durationvec;
@@ -62,6 +62,8 @@ std::atomic<bool> trades_isrunning = false;
 boost::asio::ssl::context contextSSL(boost::asio::ssl::context::method::sslv23_client);
 boost::asio::ssl::context coSSL(boost::asio::ssl::context::sslv23_client);
 
+Matching engine;
+
 int main(const int argc, char *argv[])
 {
     installTerminateHandler();
@@ -87,7 +89,8 @@ int main(const int argc, char *argv[])
     websocketsTrade(ioc, coSSL, host, port, endpoint);
     clients.createClients(900);
     matchPool::prewarmAtStart(2000000);
-    std::cout << "matchPool size" << sizeof(matchPool);
+    
+    
     // std::cout << "getmarketdata main "<< get_market_data; std::unique_lock lock(m);
 
     // trades for matching engine and client creation and their tradeBehavior in a separate thread

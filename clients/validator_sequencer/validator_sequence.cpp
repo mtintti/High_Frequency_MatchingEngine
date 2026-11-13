@@ -3,9 +3,9 @@
 #include "validator_sequence.h"
 #include "../clients.h" 
 #include "../../profile.h"
-#include "../../orderbook/orderbook.h"
+#include "../../memory/matchingEngine_pool.h"
+#include "../../matchingEngine/matchingEngine.h"
 #include "../../main.h"
-
 // a validator layer for checking validation of incoming buy or sell orders. Checks that the funds_to_use are less then accounts amount.
 // myös tehdään sequencing matching engineä varten jossa asetetaan FIFO tarvitsema aika validoituun tradeen.
 // bitcoinin current market price haetaan ensimmäisestä asks market orderbook:in hinnasta josta asiakkaan portofolion arvo lasketaan.
@@ -26,9 +26,8 @@ std::atomic<int64_t> new_ms_count{0};
 std::atomic<int64_t> sequence_calls{0};
 std::atomic<int64_t> else_branche_calls{0};
 std::atomic<long long> per_client_seq_array[2];
-std::atomic<int64_t> curr_marketPrice = 6400000; // asetettu numero bitcoin pricelle, ennen kuin oikea current bitcoin asks price has been gotten.
-
-long long Validator::gen_timestamp(long client_id, std::atomic<long long> per_client_seq_array[]){
+ std::atomic<int64_t> curr_marketPrice = 6400000; // asetettu numero bitcoin pricelle, ennen kuin oikea current bitcoin asks price has been gotten.
+void Validator::gen_timestamp(long client_id, std::atomic<long long> per_client_seq_array[]){
     lock_guard<mutex> lock(mtx);
     long long timestamp_touse = currtime_ms();
     sequence_calls.fetch_add(1, std::memory_order_relaxed);
@@ -61,18 +60,17 @@ long long Validator::gen_timestamp(long client_id, std::atomic<long long> per_cl
     
 }
 
-void Validator::sequencer(invi_client &client, int64_t funds_to_use){
+OrdertoMatch *Validator::sequencer(invi_client &client, int64_t funds_to_use){
     //std::cout<<"\n timestamp for client "<< client.client_id;
-    long client_id = client.client_id;
+    int64_t client_id = client.client_id;
     
     gen_timestamp(client_id, per_client_seq_array);
     //std::cout << "\n timestamp: " << per_client_seq_array[0] << " seq: "<<per_client_seq_array[1];
     
-    order_for_matching.timestamp = per_client_seq_array[0];
-    order_for_matching.orderid = per_client_seq_array[1];
-    order_for_matching.orderside = client.typeofOrder;
-    order_for_matching.funds = funds_to_use;
+    auto returned_matchpool = allocateOrder(OrdertoMatch{per_client_seq_array[1].load(), per_client_seq_array[0].load(), client.typeofOrder, State::NEW, client_id, funds_to_use,client.limit_price, 0});
+    return returned_matchpool;
     
+  
 };
 
 void Validator::validate(invi_client &client, int64_t funds_to_use){
@@ -93,7 +91,10 @@ void Validator::validate(invi_client &client, int64_t funds_to_use){
             if (client.typeofOrder == Side::BUY){
                 if (funds_to_use <= client.money){
                     clients_total_passed++;
-                    sequencer(client, funds_to_use);
+                    OrdertoMatch *order = sequencer(client, funds_to_use);
+                    if (order){
+                        engine.submit_valid_order(order);
+                    };
                     //std::cout << "\n client id (buy) "<<client.client_id;
                 } else {
                     insuffent_funds++;
@@ -105,7 +106,7 @@ void Validator::validate(invi_client &client, int64_t funds_to_use){
                 // pendingSnapshots muutetaan main.cpp marketData thread callissa vasta kuin https binance get request on valmis, jonka jälkeen snapshot muutetaan = 0, joten tämä riitää hyvin.
                 if (obook.isin_Sync == true && pendingSnapshots == 0)
                 {
-                    curr_marketPrice = obook.lastest_best_askprice.load();
+                    curr_marketPrice = lastest_best_askprice.load();
                     // std::cout << "\n latest best ask "<< curr_marketPrice;
                     int64_t portofolio_val = (client.bitcoin_amount * 0.01) * (curr_marketPrice * 0.01);
                     if (portofolio_val >= funds_to_use)
@@ -113,10 +114,11 @@ void Validator::validate(invi_client &client, int64_t funds_to_use){
                         // can pass to sequencing
                         clients_total_passed++;
                         //std::cout << "\n client id (sell) "<<client.client_id;
-                        sequencer(client, funds_to_use);
-                    }
-                    else
-                    {
+                        OrdertoMatch *order = sequencer(client, funds_to_use);
+                        if (order){
+                            engine.submit_valid_order(order);
+                        }
+                    }else{
                         sell_less_than_holdings_value++;
                         // std::cout << " clients portofolio value: " << portofolio_val << " funds to use: " << funds_to_use;
                     };

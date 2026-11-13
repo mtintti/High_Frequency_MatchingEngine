@@ -10,6 +10,7 @@
 struct invi_client{
     int64_t client_id;
     int64_t money;
+    int64_t limit_price = 0;
     Side typeofOrder;
     int64_t bitcoin_amount = 0; // total_amount_of_coin_holdings
     std::string ticket_name;

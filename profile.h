@@ -31,6 +31,7 @@ public:
         GENERATE_TRADE_BEHAVIOR,
         VALIDATE,
         SEQUENCE,
+        MATCHING_ENGINE,
         STAGE_COUNT
     };
 
@@ -71,6 +72,13 @@ public:
                 matchpool_peak      = std::max(matchpool_peak, allocated);
                 break;
             }
+            case Stage::MATCHING_ENGINE:{
+                std::lock_guard<std::mutex> lockmatch(matching_engine_mutex);
+                matching_engine_alloc = allocated;
+                matching_engine_capacity  = pool_size;
+                matching_engine_peak      = std::max(matching_engine_peak, allocated);
+                break;
+            }
         }
        
     }
@@ -92,16 +100,29 @@ public:
                    std::memory_order_relaxed)) {}
     } 
 
-    void generateTradeBehavior(size_t clients_generated, size_t generated_this_second) {
-        client_trade_behavior.store(clients_generated, std::memory_order_relaxed);
-        total_generated_second.store(generated_this_second, std::memory_order_relaxed);
+    void generateTradeBehavior(size_t clients_generated, size_t generated_this_second, enum Stage s) {
+        if (s == Stage::MATCHING_ENGINE){
+            //client_trade_behavior.store(clients_generated, std::memory_order_relaxed);
+            total_matched_this_second.store(generated_this_second, std::memory_order_relaxed);
 
-        // Track peak *throughput* (best passed/sec seen), not peak of the
-        // ever-growing total - that number is only ever equal to "latest".
-        size_t prev_peak = trade_behavior_peak.load(std::memory_order_relaxed);
-        while (generated_this_second > prev_peak &&
-               !trade_behavior_peak.compare_exchange_weak(prev_peak, generated_this_second,
-                   std::memory_order_relaxed)) {}
+            // Track peak *throughput* (best passed/sec seen), not peak of the
+            // ever-growing total - that number is only ever equal to "latest".
+            size_t prev_peak = matching_engine_peak;
+            while (generated_this_second > prev_peak &&
+                !trade_behavior_peak.compare_exchange_weak(prev_peak, generated_this_second,
+                    std::memory_order_relaxed)) {}
+        } else if (s == Stage::GENERATE_TRADE_BEHAVIOR){
+            client_trade_behavior.store(clients_generated, std::memory_order_relaxed);
+            total_generated_second.store(generated_this_second, std::memory_order_relaxed);
+
+            // Track peak *throughput* (best passed/sec seen), not peak of the
+            // ever-growing total - that number is only ever equal to "latest".
+            size_t prev_peak = trade_behavior_peak.load(std::memory_order_relaxed);
+            while (generated_this_second > prev_peak &&
+                !trade_behavior_peak.compare_exchange_weak(prev_peak, generated_this_second,
+                    std::memory_order_relaxed)) {}
+        }
+        
     } 
 
     void print() const {
@@ -118,6 +139,7 @@ public:
             "gene_trade_beh",
             "validate      ", // VALIDATE          = 7
             "sequence      ", // SEQUENCE          = 8
+            "matching engine ",
         };
 
         std::cout << "\n";
@@ -171,6 +193,11 @@ public:
         std::cout << "  passed total: " << total_passed.load() << "\n";
         std::cout << "  passed per second: " << total_passed_second.load() << "\n";
         std::cout << "  peak: " << validate_peak.load() << "\n";
+        std::cout << "matching engine:\n";
+        std::cout << "  matching engine alloc: " << matching_engine_alloc<< " blocks\n";
+        std::cout << "  matching engine peak alloc: " << matching_engine_peak << " blocks\n";
+        std::cout << "  matched per second: "<<total_matched_this_second;
+        std::cout << "  matching engine capacity: " << matching_engine_capacity << " blocks\n";
         std::cout << "=========================================\n";
     }
 
@@ -186,16 +213,21 @@ private:
     StageStats stages[STAGE_COUNT];
     std::mutex pool_mutex;
     std::mutex matchpool_mutex;
+    std::mutex matching_engine_mutex;
     size_t pool_allocated{0};
     size_t pool_capacity{0};
     size_t pool_peak{0};
     size_t matchpool_alloc{0};
     size_t matchpool_capacity{0};
     size_t matchpool_peak{0};
+    size_t matching_engine_alloc{0};
+    size_t matching_engine_capacity{0};
+    size_t matching_engine_peak{0};
     std::atomic<size_t> book_bids{0};
     std::atomic<size_t> book_asks{0};
     std::atomic<size_t> client_trade_behavior{0};
     std::atomic<size_t> total_generated_second{0};
+    std::atomic<size_t> total_matched_this_second{0};
     std::atomic<size_t> trade_behavior_peak{0};
     std::atomic<size_t> total_passed{0};
     std::atomic<size_t> total_passed_second{0};

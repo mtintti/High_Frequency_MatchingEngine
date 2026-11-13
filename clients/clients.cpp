@@ -74,12 +74,16 @@ void Clients::generateTradeBehavior(){
         clients_number++;
        
         int64_t money_kneecapped = client.money * 0.7;
-        
+        int64_t price_variance = (rand() % 101);
         
         if(client.typeofOrder == Side::SELL){
             money_kneecapped = (client.bitcoin_amount * 0.01) * (6400000 * 0.01) * 0.7;
+            client.limit_price =  lastest_best_bidprice.load() + price_variance;
         }
         int64_t funds_to_use = std::max<int64_t>(10,(rand() % (money_kneecapped)+1));
+        if (client.limit_price == 0 && client.typeofOrder == Side::BUY){
+            client.limit_price = lastest_best_askprice.load() + price_variance;
+        }
         //std::cout << "\n money kneecapped at "<< money_kneecapped <<" using client money " << client.money << " * 0.7 " << "client.bitcoin_amount " << (client.bitcoin_amount * 0.01);
         if( funds_to_use <= 0) {
             std::cout << "\n clients fund were zero, " << funds_to_use << "portofolio val " << (client.bitcoin_amount * 0.01) * (77500 * 0.01);
@@ -102,7 +106,7 @@ void Clients::generateTradeBehavior(){
             
             int64_t clients_genereted_this_second = current_clients_generated - total_gen_snapshot;
             HFTProfiler::instance().generateTradeBehavior(
-                static_cast<size_t>(clients_number), static_cast<size_t>(clients_genereted_this_second));
+                static_cast<size_t>(clients_number), static_cast<size_t>(clients_genereted_this_second), HFTProfiler::GENERATE_TRADE_BEHAVIOR);
              last_total_gen_snapshot.store(current_clients_generated); 
         };
     };

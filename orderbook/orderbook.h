@@ -2,7 +2,10 @@
 #include <map>
 #include <functional> 
 extern std::atomic<bool>pausing_dUp;
-
+extern std::atomic<int64_t> lastest_best_askprice;
+extern std::atomic<int64_t> lastest_best_bidprice;
+extern std::atomic<double> latest_best_ask_amount;
+extern std::atomic<double> latest_best_bid_amount;
 
 class orderbook{
     std::map<int64_t, int64_t, std::less<int64_t>> asks;  //sorted, lowest first
@@ -13,7 +16,7 @@ class orderbook{
     int totalEnterys = 0;
     public: 
     void init();
-    void addingEntery(int64_t price, int64_t amount, bool isbid);
+    void addingEntery(int64_t price, int64_t amount, bool isbid, bool fromMatchingengine = false);
     void asks_current_price();
     void bids_current_price();
     void clearBooks();
@@ -24,8 +27,6 @@ class orderbook{
     void printTop(int levels);
 
     std::atomic<bool> pausing_dUp = false;
-    std::atomic<uint64_t> lastest_best_askprice;
-    std::atomic<uint64_t> lastest_best_bidprice;
     
 };
 extern orderbook obook;

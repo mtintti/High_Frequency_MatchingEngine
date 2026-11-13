@@ -18,6 +18,7 @@ add_executable(High_Frequency_MatchingEngine main.cpp network/websocket.cpp netw
     clients/clients.cpp
     clients/validator_sequencer/validator_sequence.cpp
     matchingEngine/matchingEngine.h
+    matchingEngine/matchingEngine.cpp
     memory/matchingEngine_pool.cpp
     memory/matchingEngine_pool.h)
 

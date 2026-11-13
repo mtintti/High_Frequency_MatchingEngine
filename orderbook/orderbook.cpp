@@ -1,29 +1,42 @@
-#include "../orderbook/orderbook.h"
 #include "../memory/mempool.h"
 #include "../profile.h"
 #include "../marketData/marketdata_Snapshot.h"
 #include "../main.h"
 
 orderbook obook;
+std::atomic<int64_t> lastest_best_askprice;
+std::atomic<int64_t> lastest_best_bidprice;
+std::atomic<double> latest_best_ask_amount;
+std::atomic<double> latest_best_bid_amount;
 
 // snapshot oderbook addingEntery käyttää tätä
-void orderbook::addingEntery(int64_t price, int64_t amount, bool isbid)
+void orderbook::addingEntery(int64_t price, int64_t amount, bool isbid, bool fromMatchingengine)
 {
-    // std::cout << "\n in orderbook";
-    // std::cout << "\n got price "<< price << " , amount " << amount;
-    totalEnterys++;
+    if(fromMatchingengine == true){
+        //std::cout << "\n in orderbook";
+        //std::cout << "\n got price "<< price << " , amount " << amount;
+    }
+    if(fromMatchingengine == false){
+        totalEnterys++;
+    }
     // std::cout << "\n total enterys " << totalEnterys;
     // lastId_Snapshot = lastId;
 
     if (amount == 0)
     {
         if (isbid)
-        {
+        {   
             bids.erase(price);
+            if(fromMatchingengine == true){
+                //std::cout << " erased bid " << isbid;
+            }
         }
         else
         {
             asks.erase(price);
+            if(fromMatchingengine == true){
+                //std::cout << " erased ask ";
+            };
         }
     }
     else
@@ -31,10 +44,16 @@ void orderbook::addingEntery(int64_t price, int64_t amount, bool isbid)
         if (isbid)
         {
             bids.insert_or_assign(price, amount);
+            if(fromMatchingengine == true){
+                //std::cout << " inserted new bid ";
+            }
         }
         else
         {
             asks.insert_or_assign(price, amount);
+            if(fromMatchingengine == true){
+                //std::cout << " inserted new ask ";
+            }
         }
     }
 }
@@ -44,8 +63,10 @@ void orderbook::asks_current_price()
     //if(pendingSnapshots != 1){
     // std::cout << "\n bids size " << asks.size();
     auto firstAsk = asks.begin();
-    auto currentMarketprice = firstAsk->first;
+    int64_t currentMarketprice = firstAsk->first;
+    int64_t sellers_ask_amount = firstAsk->second;
     lastest_best_askprice = currentMarketprice;
+    latest_best_ask_amount = sellers_ask_amount / 100000.0;
     //} else {
       //  std::cout << "\n pending fetching current marketPrice..";
       //  return 0;
@@ -55,8 +76,10 @@ void orderbook::asks_current_price()
 void orderbook::bids_current_price(){
     // std::cout << "\n bids size " << bids.size();
     auto firstBid = bids.begin();
-    auto currentMarketprice = firstBid->first;
+    int64_t currentMarketprice = firstBid->first;
+    int64_t sellers_bid_amount = firstBid->second;
     lastest_best_bidprice= currentMarketprice;
+    latest_best_bid_amount = sellers_bid_amount / 100000.0;
 }
 
 void orderbook::clearBooks()
@@ -147,6 +170,7 @@ void orderbook::updateDepthBased(struct DepthUpdate *Udp)
             };
         };
         localId = Udp->id_sequence;
+        if(localId > 0){
         HFTProfiler::instance().recordOrderBookSize(
             obook.bids.size(), obook.asks.size());
         } else {
@@ -155,6 +179,7 @@ void orderbook::updateDepthBased(struct DepthUpdate *Udp)
                 return;
             };
         };
+    }
     
 };
 
