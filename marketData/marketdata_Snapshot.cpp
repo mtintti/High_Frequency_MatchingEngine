@@ -4,12 +4,13 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
-#include "orderbookSnapshot.h"
-#include "windcertsload.h"
+#include "marketdata_Snapshot.h"
+#include "../windcertsload.h"
 #include <regex>
-#include "orderbook.h"
-#include "profile.h"
-#include "fast_float.h"
+#include "../main.h"
+#include "../profile.h"
+#include "../fast_float.h"
+#include "../network/read_parser.h"
 
 namespace beast = boost::beast;
 namespace http = beast::http;   
@@ -66,6 +67,7 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
             std::cout << "\n what?: " << ec.what();
         } // Make the connection on the IP address we get from a lookup
         HFTProfiler::SNAPSHOT_GET;
+        auto startGET = std::chrono::steady_clock::now();
         boost::asio::ssl::stream<tcp::socket> socket(ioc, contextSSL);
         socket.set_verify_callback(boost::asio::ssl::host_name_verification(host));
         socket.set_verify_mode(boost::asio::ssl::verify_peer);
@@ -88,8 +90,15 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
         beast::flat_buffer buffer;
         http::response<http::string_body> res;
         http::read(socket, buffer, res);
+        auto usGET = std::chrono::duration_cast<std::chrono::microseconds>(
+                          std::chrono::steady_clock::now() - startGET)
+                          .count();
+        HFTProfiler::instance().recordStage(HFTProfiler::SNAPSHOT_GET, static_cast<uint64_t>(usGET));
         auto stringres = res.body();
+
+       
         HFTProfiler::SNAPSHOT_PARSE;
+        auto start = std::chrono::steady_clock::now();
         int num = 0;
         bool insidebraket = false;
         bool outsidebraket = false;
@@ -204,9 +213,14 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
         obook.lastId_Snapshot = lastId;
         obook.localId = lastId;
         obook.isin_Sync = false;
-        
 
-        std::cout << "\n message ended. shutting down..";
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(
+                          std::chrono::steady_clock::now() - start)
+                          .count();
+        HFTProfiler::instance().recordStage(HFTProfiler::SNAPSHOT_PARSE, static_cast<uint64_t>(us));
+        std::cout << "\n localId and lastId "<<obook.localId << " " << lastId;
+
+        //std::cout << "\n message ended. shutting down..";
 
         // Gracefully close the socket
         // stream.socket().shutdown(tcp::socket::shutdown_both, ec);
@@ -214,12 +228,12 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
         if (ec &&
             ec != beast::errc::not_connected)
         {
-            std::cerr << "\n unexpected shutdown error: " << ec.message();
+            //std::cerr << "\n unexpected shutdown error: " << ec.message();
             throw beast::system_error{ec};
         }
         if (ec == net::ssl::error::stream_truncated)
         {
-            std::cout << "\n connection trunc error";
+            //std::cout << "\n connection trunc error";
             ec = {}; // clear it, not a real error
         }
         std::cout << "\n connection closed cleanly";
@@ -229,7 +243,7 @@ int getRequestOrderBook(boost::asio::ssl::context &contextSSL)
     catch (std::exception const &e)
     {
 
-        std::cerr << "Error: " << e.what() << std::endl;
+        //std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;

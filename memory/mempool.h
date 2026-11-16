@@ -1,9 +1,10 @@
-
+#pragma once
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <stddef.h>
 #include <assert.h>
+#include <cstdint>
 
 class MemoryPoolBase
 {
@@ -51,7 +52,7 @@ private:
     const MemoryPoolSet &operator=(const MemoryPoolSet &);
 };
 
-template <size_t Sz>
+template <size_t Sz, typename PoolName_toUse = void>
 class MemoryPool : public MemoryPoolBase
 {
 public:
@@ -146,18 +147,18 @@ private:
     const MemoryPool &operator=(const MemoryPool &);
 };
 
-template <size_t Sz>
+template <size_t Sz, typename PoolName_toUse>
 bool
-    MemoryPool<Sz>::s_fDestroyed = false;
-template <size_t Sz>
-MemoryPool<Sz> *
-    MemoryPool<Sz>::s_pInstance = NULL;
-template <size_t Sz>
+    MemoryPool<Sz, PoolName_toUse>::s_fDestroyed = false;
+template <size_t Sz,  typename PoolName_toUse>
+MemoryPool<Sz, PoolName_toUse> *
+    MemoryPool<Sz, PoolName_toUse>::s_pInstance = NULL;
+template <size_t Sz,  typename PoolName_toUse>
 MemoryPoolBase::BlockList *
-    MemoryPool<Sz>::s_pMemoryPool = NULL;
+    MemoryPool<Sz, PoolName_toUse>::s_pMemoryPool = NULL;
 
-template <size_t Sz>
-void MemoryPool<Sz>::recycle()
+template <size_t Sz,  typename PoolName_toUse>
+void MemoryPool<Sz, PoolName_toUse>::recycle()
 {
     BlockList *pBlockList = s_pMemoryPool;
     while (pBlockList)
@@ -175,10 +176,9 @@ void MemoryPool<Sz>::recycle()
             break;
         }
     }
-}
-
-template <size_t Sz>
-void MemoryPool<Sz>::createInstance()
+} 
+template <size_t Sz,  typename PoolName_toUse>
+void MemoryPool<Sz, PoolName_toUse>::createInstance()
 {
     if (s_fDestroyed)
     {
